@@ -2,13 +2,15 @@
 // @name         学习通-随堂测验/章节测试/作业/考试题目一键提取导出pdf/word/txt/markdown格式文档
 // @namespace    https://tiku888.top/
 // @license      GPL-3.0
-// @version      1.7.22
+// @version      1.7.23
 // @run-at       document-start
 // @description  一键提取学习通作业题目，支持富文本（图文混排）及 Word/PDF/TXT/MD 四种格式导出、按课程任务点自动逐个提取章节测验、题目勾选后按范围导出，答案/错题收集，独立题库区（新建/存取/编辑/手动添加/导入/四种格式导出/题库对比），暗色模式，快捷键，iframe 提取
 // @author       suyu
 // @icon         http://pan-yz.chaoxing.com/favicon.ico
 // @match        *://*.chaoxing.com/*
 // @match        *://*.edu.cn/*
+// @match        *://xuexitong.com/*
+// @match        *://*.xuexitong.com/*
 // @require      https://unpkg.com/docx@8.5.0/build/index.umd.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js
 // @resource     XXT_FONT_TABLE https://cdn.ocsjs.com/resources/font/table.json

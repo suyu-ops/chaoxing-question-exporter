@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue.svg" alt="GPL-3.0 License"></a>
-  <a href="./学习通题目导出.user.js"><img src="https://img.shields.io/badge/version-1.7.22-7c3aed.svg" alt="Version 1.7.22"></a>
+  <a href="./学习通题目导出.user.js"><img src="https://img.shields.io/badge/version-1.7.23-7c3aed.svg" alt="Version 1.7.23"></a>
   <a href="https://github.com/suyu-ops/chaoxing-question-exporter"><img src="https://img.shields.io/badge/platform-学习通-3b82f6.svg" alt="学习通"></a>
 </p>
 
