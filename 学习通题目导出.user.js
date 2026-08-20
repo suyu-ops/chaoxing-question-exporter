@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         学习通-随堂测验/章节测试/作业/考试题目一键提取导出pdf/word/txt/markdown格式文档
 // @license      GPL-3.0
-// @version      1.7.19
+// @version      1.7.20
 // @run-at       document-start
 // @description  一键提取学习通作业题目，支持富文本（图文混排）及 Word/PDF/TXT/MD 四种格式导出、按课程任务点自动逐个提取章节测验、题目勾选后按范围导出，答案/错题收集，独立题库区（新建/存取/编辑/手动添加/导入/四种格式导出/题库对比），暗色模式，快捷键，iframe 提取
 // @author       suyu
@@ -219,6 +219,31 @@
 #xxt-panel .xxt-bank-entry-copy small { font-size: 11px; line-height: 1.4; color: var(--xxt-text-soft); font-weight: 600; }
 #xxt-panel .xxt-bank-entry-arrow { font-size: 24px; line-height: 1; color: var(--xxt-accent); transition: transform 0.22s ease; }
 #xxt-panel .xxt-bank-entry:hover .xxt-bank-entry-arrow { transform: translateX(3px); }
+/* ===== 星夜题库资源入口 ===== */
+#xxt-panel .xxt-tiku-promo {
+  margin: 0 0 10px; padding: 9px 10px;
+  border: 1px solid rgba(14,165,233,.28); border-radius: 14px;
+  background: linear-gradient(135deg, rgba(14,165,233,.09), rgba(16,185,129,.08));
+  box-shadow: 0 7px 18px -14px rgba(14,116,144,.52);
+}
+#xxt-panel .xxt-tiku-promo-top { display:flex; align-items:center; gap:8px; min-width:0; }
+#xxt-panel .xxt-tiku-promo-icon {
+  width:30px; height:30px; flex:0 0 30px; border-radius:10px;
+  display:grid; place-items:center; background:#fff; color:#0284c7; font-size:16px;
+  box-shadow:0 5px 11px -8px rgba(2,132,199,.65);
+}
+#xxt-panel .xxt-tiku-promo-copy { display:flex; flex:1; min-width:0; flex-direction:column; gap:1px; }
+#xxt-panel .xxt-tiku-promo-copy strong { color:#0369a1; font-size:12.5px; line-height:1.3; font-weight:800; }
+#xxt-panel .xxt-tiku-promo-copy small { color:#52708a; font-size:10px; line-height:1.35; font-weight:600; }
+#xxt-panel .xxt-tiku-promo-actions { display:flex; gap:6px; margin-top:8px; }
+#xxt-panel .xxt-tiku-promo-link {
+  display:inline-flex; align-items:center; justify-content:center; min-height:27px; flex:1;
+  padding:0 8px; border:1px solid rgba(2,132,199,.52); border-radius:9px;
+  color:#0369a1; background:rgba(255,255,255,.68); text-decoration:none;
+  font-size:10.5px; font-weight:800; line-height:1; transition:all .2s ease;
+}
+#xxt-panel .xxt-tiku-promo-link:hover { transform:translateY(-1px); background:#0284c7; border-color:#0284c7; color:#fff; box-shadow:0 7px 14px -8px rgba(2,132,199,.68); }
+#xxt-panel .xxt-tiku-promo-link:focus-visible { outline:none; box-shadow:0 0 0 3px rgba(14,165,233,.24); }
 /* ===== 提取按钮（渐变主按钮） ===== */
 #xxt-panel .xxt-btn-extract {
   display: block; width: 100%; padding: 13px; border: none;
@@ -890,6 +915,13 @@
 #xxt-panel .xxt-bank-entry-copy strong { font-size:12.5px; }
 #xxt-panel .xxt-bank-entry-copy small { font-size:10px; }
 #xxt-panel .xxt-bank-entry-arrow { font-size:18px; }
+#xxt-panel .xxt-tiku-promo { margin:0 0 8px; padding:7px 8px; border-radius:12px; }
+#xxt-panel .xxt-tiku-promo-top { gap:7px; }
+#xxt-panel .xxt-tiku-promo-icon { width:28px; height:28px; flex-basis:28px; border-radius:9px; font-size:15px; }
+#xxt-panel .xxt-tiku-promo-copy strong { font-size:11.5px; }
+#xxt-panel .xxt-tiku-promo-copy small { font-size:9.5px; }
+#xxt-panel .xxt-tiku-promo-actions { gap:5px; margin-top:6px; }
+#xxt-panel .xxt-tiku-promo-link { min-height:24px; padding:0 6px; border-radius:8px; font-size:9.5px; }
 
 #xxt-panel .xxt-primary-actions { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-bottom:8px; }
 #xxt-panel .xxt-primary-actions .xxt-btn-extract,
@@ -980,6 +1012,12 @@
 [data-xxt-theme="dark"] #xxt-panel .xxt-bank-entry-copy strong { color: #e9d5ff; }
 [data-xxt-theme="dark"] #xxt-panel .xxt-bank-entry-copy small { color: #a6adc8; }
 [data-xxt-theme="dark"] #xxt-panel .xxt-bank-entry-arrow { color: #c4b5fd; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-tiku-promo { background:linear-gradient(135deg, rgba(14,116,144,.22), rgba(5,150,105,.16)); border-color:rgba(125,211,252,.30); }
+[data-xxt-theme="dark"] #xxt-panel .xxt-tiku-promo-icon { background:#181825; color:#7dd3fc; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-tiku-promo-copy strong { color:#bae6fd; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-tiku-promo-copy small { color:#a6c6d8; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-tiku-promo-link { color:#bae6fd; background:rgba(24,24,37,.74); border-color:rgba(125,211,252,.48); }
+[data-xxt-theme="dark"] #xxt-panel .xxt-tiku-promo-link:hover { background:#0284c7; border-color:#0284c7; color:#fff; }
 [data-xxt-theme="dark"] #xxt-panel .xxt-btn-batch { background:rgba(124,58,237,.10); border-color:rgba(196,181,253,.54); color:#ddd6fe; }
 [data-xxt-theme="dark"] #xxt-panel .xxt-batch-live { border-color:rgba(196,181,253,.40); background:rgba(124,58,237,.12); }
 [data-xxt-theme="dark"] #xxt-panel .xxt-batch-live-title { color:#f5f3ff; }
@@ -4982,6 +5020,16 @@
         <span class="xxt-bank-entry-copy"><strong>题库区</strong><small>管理、保存和导出题目</small></span>
         <span class="xxt-bank-entry-arrow" aria-hidden="true">›</span>
       </button>
+      <section class="xxt-tiku-promo" aria-label="星夜题库资源入口">
+        <div class="xxt-tiku-promo-top">
+          <span class="xxt-tiku-promo-icon" aria-hidden="true">✦</span>
+          <span class="xxt-tiku-promo-copy"><strong>星夜题库 · 千万免费题库</strong><small>支持 OCS 网课助手接入与配置</small></span>
+        </div>
+        <div class="xxt-tiku-promo-actions">
+          <a class="xxt-tiku-promo-link" href="https://tiku888.top/" target="_blank" rel="noopener noreferrer" title="在新标签页打开星夜题库">进入题库 ↗</a>
+          <a class="xxt-tiku-promo-link" href="https://tiku888.top/guide" target="_blank" rel="noopener noreferrer" title="查看 OCS 网课助手接入说明">OCS 接入说明 ↗</a>
+        </div>
+      </section>
       <div class="xxt-primary-actions">
         <button id="xxt-btnExtract" class="xxt-btn xxt-btn-extract">提取本页</button>
         <button id="xxt-btnBatchExtract" class="xxt-btn-batch" type="button" title="选择课程任务点后，自动提取整门课章节测验">整门课提取</button>
