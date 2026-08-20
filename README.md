@@ -7,8 +7,8 @@
 
 <p align="center">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue.svg" alt="GPL-3.0 License"></a>
-  <a href="./学习通题目导出.user.js"><img src="https://img.shields.io/badge/version-1.7.19-7c3aed.svg" alt="Version 1.7.19"></a>
-  <a href="https://github.com/3975741474/chaoxing-question-exporter"><img src="https://img.shields.io/badge/platform-学习通-3b82f6.svg" alt="学习通"></a>
+  <a href="./学习通题目导出.user.js"><img src="https://img.shields.io/badge/version-1.7.20-7c3aed.svg" alt="Version 1.7.20"></a>
+  <a href="https://github.com/suyu-ops/chaoxing-question-exporter"><img src="https://img.shields.io/badge/platform-学习通-3b82f6.svg" alt="学习通"></a>
 </p>
 
 > 仅用于整理你有权查看的课程资料和已完成的练习记录。页面结构可能随学习通更新而变化；导出前请自行核对题目与答案。
@@ -199,7 +199,7 @@
 
 ## 开发与反馈
 
-- 项目源码：<https://github.com/3975741474/chaoxing-question-exporter>
+- 项目源码：<https://github.com/suyu-ops/chaoxing-question-exporter>
 - 欢迎通过 GitHub Issue 说明页面链接类型、题目页截图、浏览器和脚本版本，以及复现步骤。
 - 请勿在 Issue 中提交账号、课程密码、学号、完整私密课程链接等敏感信息。
 
