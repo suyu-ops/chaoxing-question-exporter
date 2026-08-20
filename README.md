@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue.svg" alt="GPL-3.0 License"></a>
-  <a href="./学习通题目导出.user.js"><img src="https://img.shields.io/badge/version-1.7.21-7c3aed.svg" alt="Version 1.7.21"></a>
+  <a href="./学习通题目导出.user.js"><img src="https://img.shields.io/badge/version-1.7.22-7c3aed.svg" alt="Version 1.7.22"></a>
   <a href="https://github.com/suyu-ops/chaoxing-question-exporter"><img src="https://img.shields.io/badge/platform-学习通-3b82f6.svg" alt="学习通"></a>
 </p>
 
@@ -99,7 +99,7 @@
 2. 打开 [`学习通题目导出.user.js`](./学习通题目导出.user.js)，选择 `Raw` 后确认安装；也可以新建脚本并粘贴源码。
 3. 确认脚本已启用，并允许它匹配学习通页面。
 
-> v1.7.21 已将学习通加密字体解码所需的 Typr.js 和 MD5 实现内置，不再从 ScriptCat 加载；脚本头部仍声明 DOCX、PDF 等导出依赖。首次使用时，请确保浏览器和脚本管理器没有拦截这些公开资源。
+> v1.7.22 已将学习通加密字体解码所需的 Typr.js 和 MD5 未压缩源码内置，不再从 ScriptCat 加载，也不会触发 Greasy Fork 对压缩代码的限制；脚本头部仍声明 DOCX、PDF 等导出依赖。首次使用时，请确保浏览器和脚本管理器没有拦截这些公开资源。
 
 ## 快速开始
 
