@@ -2,7 +2,7 @@
 // @name         学习通-随堂测验/章节测试/作业/考试题目一键提取导出pdf/word/txt/markdown格式文档
 // @namespace    https://tiku888.top/
 // @license      GPL-3.0
-// @version      1.10.0
+// @version      1.10.1
 // @run-at       document-start
 // @description  一键提取学习通作业题目，支持富文本（图文混排）及 Word/PDF/TXT/MD 四种格式导出、按课程任务点自动逐个提取章节测验、题目勾选后按范围导出，答案/错题收集，独立题库区（新建/存取/编辑/手动添加/导入/四种格式导出/题库对比），暗色模式，快捷键，iframe 提取
 // @author       suyu
@@ -4556,6 +4556,146 @@ Typr["U"] = {
       }
     }
     return true;
+  }
+
+  // ==================== 批量提取进度持久化 ====================
+  // 整门课提取动辄半小时，中途刷新/崩溃/关闭标签都会让已提取的题目全丢。
+  // 这里把进度和已合并的题目增量写入存档，重启后自动恢复。
+  const BATCH_PROGRESS_KEY = 'xxt_batch_progress_v1';
+  // 存档有上限，避免题库很大时写爆配额（题目本身可能上万道）。
+  const BATCH_PROGRESS_MAX_BYTES = 3 * 1024 * 1024;
+  let batchProgressWriter = null;
+
+  function readBatchProgressValue() {
+    try {
+      if (typeof GM_getValue === 'function') {
+        const value = GM_getValue(BATCH_PROGRESS_KEY, '');
+        if (value && typeof value.then !== 'function') return value;
+      }
+    } catch (e) { /* 回退 localStorage */ }
+    try { return localStorage.getItem(BATCH_PROGRESS_KEY) || ''; } catch (e) { return ''; }
+  }
+
+  function writeBatchProgressValue(serialized) {
+    try {
+      if (typeof GM_setValue === 'function') {
+        const result = GM_setValue(BATCH_PROGRESS_KEY, serialized);
+        if (!result || typeof result.then !== 'function') return true;
+      }
+    } catch (e) { /* 回退 localStorage */ }
+    try { localStorage.setItem(BATCH_PROGRESS_KEY, serialized); return true; } catch (e) { return false; }
+  }
+
+  function clearBatchProgress() {
+    try {
+      if (typeof GM_setValue === 'function') GM_setValue(BATCH_PROGRESS_KEY, '');
+    } catch (e) {}
+    try { localStorage.removeItem(BATCH_PROGRESS_KEY); } catch (e) {}
+  }
+
+  // 把运行状态压缩成可存档的结构。日志只留最后 60 条，题目全量保留。
+  function serializeBatchRun(run) {
+    if (!run) return null;
+    const results = {};
+    QUESTION_BANK_SLOTS.forEach(type => {
+      results[type] = (run.results && run.results[type]) || [];
+    });
+    return {
+      savedAt: new Date().toISOString(),
+      id: run.id,
+      title: run.title || '',
+      nextIndex: Number(run.nextIndex) || 0,
+      completed: Number(run.completed) || 0,
+      taskPointsCompleted: Number(run.taskPointsCompleted) || 0,
+      added: Number(run.added) || 0,
+      skipped: Number(run.skipped) || 0,
+      failed: Number(run.failed) || 0,
+      answersFilled: Number(run.answersFilled) || 0,
+      results,
+      typeOrder: Array.isArray(run.typeOrder) ? run.typeOrder.slice() : [],
+      // 只记任务点与完成标记，用于恢复时跳过已完成章节。
+      taskPoints: (run.selectedTaskPoints || []).map(entry => ({
+        id: entry.id,
+        label: entry.label,
+        knowledgeId: entry.knowledgeId,
+        selected: !!entry.selected,
+        state: entry.state || 'pending',
+        detail: entry.detail || ''
+      })),
+      logs: Array.isArray(run.logs) ? run.logs.slice(-60) : []
+    };
+  }
+
+  function saveBatchProgress(run) {
+    const payload = serializeBatchRun(run);
+    if (!payload) return false;
+    // 没有题目就没必要存，避免留下空档干扰恢复判断。
+    const total = QUESTION_BANK_SLOTS.reduce((sum, type) => sum + (payload.results[type] || []).length, 0);
+    if (!total) { clearBatchProgress(); return false; }
+
+    let serialized = JSON.stringify(payload);
+    let bytes = typeof TextEncoder === 'function'
+      ? new TextEncoder().encode(serialized).length
+      : new Blob([serialized]).size;
+
+    // 超限时逐级裁剪：先砍日志，再砍早期题目（保命优先保住「后半段」）。
+    if (bytes > BATCH_PROGRESS_MAX_BYTES) {
+      payload.logs = [];
+      serialized = JSON.stringify(payload);
+      bytes = typeof TextEncoder === 'function'
+        ? new TextEncoder().encode(serialized).length
+        : new Blob([serialized]).size;
+    }
+    if (bytes > BATCH_PROGRESS_MAX_BYTES) {
+      // 按比例削减题库，而不是「一轮砍一条」——后者在几千道题时
+      // 会循环上万次仍然装不下。这里每次保留 70%，直到能写入。
+      const measure = () => (typeof TextEncoder === 'function'
+        ? new TextEncoder().encode(serialized).length
+        : new Blob([serialized]).size);
+      let guard = 0;
+      while (bytes > BATCH_PROGRESS_MAX_BYTES && guard++ < 30) {
+        let trimmed = false;
+        QUESTION_BANK_SLOTS.forEach(type => {
+          const list = payload.results[type];
+          if (!Array.isArray(list) || list.length <= 1) return;
+          // 保留靠后的题目（越接近当前进度越重要）
+          const keep = Math.max(1, Math.floor(list.length * 0.7));
+          payload.results[type] = list.slice(list.length - keep);
+          trimmed = true;
+        });
+        if (!trimmed) break;
+        serialized = JSON.stringify(payload);
+        bytes = measure();
+      }
+      // 极端情况下仍有单条巨大题目：直接放弃存档，避免写坏存储。
+      if (bytes > BATCH_PROGRESS_MAX_BYTES) return false;
+    }
+    return writeBatchProgressValue(serialized);
+  }
+
+  // 节流写入：每章结束存一次就够，不必每道题都写。
+  function scheduleBatchProgressSave(run) {
+    if (batchProgressWriter) clearTimeout(batchProgressWriter);
+    batchProgressWriter = setTimeout(() => {
+      batchProgressWriter = null;
+      try { saveBatchProgress(run); } catch (e) { /* 存档失败不影响提取 */ }
+    }, 400);
+  }
+
+  function loadBatchProgress() {
+    const raw = readBatchProgressValue();
+    if (!raw) return null;
+    let parsed = null;
+    try { parsed = JSON.parse(raw); } catch (e) { return null; }
+    if (!parsed || typeof parsed !== 'object') return null;
+    const total = QUESTION_BANK_SLOTS.reduce((sum, type) =>
+      sum + ((parsed.results && parsed.results[type]) || []).length, 0);
+    if (!total) return null;
+    return {
+      ...parsed,
+      total,
+      savedAtText: parsed.savedAt ? new Date(parsed.savedAt).toLocaleString('zh-CN') : '未知时间'
+    };
   }
 
   function makeEmptyQuestionBank(name) {
@@ -10011,6 +10151,13 @@ Typr["U"] = {
     const batchStartButton = batchModal.querySelector('#xxt-batch-start');
     const batchStopButton = batchModal.querySelector('#xxt-batch-stop');
     let batchEntries = [];
+
+    // 关闭标签页/刷新前的最后一道保险：同步保存一次（localStorage 是同步的）。
+    window.addEventListener('beforeunload', () => {
+      if (batchExtractionRun && batchExtractionRun.running) {
+        try { saveBatchProgress(batchExtractionRun); } catch (e) {}
+      }
+    });
     // 暂停后的运行上下文只保存在当前页面会话：继续时不会重新统计已完成
     // 的章节测验，也不会丢掉已经合并到结果面板里的题目。
     let batchPausedRun = null;
@@ -10919,6 +11066,60 @@ Typr["U"] = {
       batchStartButton.textContent = batchPausedRun ? '继续提取' : '开始提取';
     }
 
+    // 把存档里的题目恢复成一个可继续的运行上下文（不自动开始，等用户确认）。
+    function adoptSavedBatchProgress(saved) {
+      if (!saved) return null;
+      const selectedTaskPoints = Array.isArray(saved.taskPoints) ? saved.taskPoints : [];
+      const run = {
+        id: `batch-run-resume-${Date.now()}`,
+        running: false,
+        stopped: true,
+        title: saved.title || '',
+        results: {},
+        typeOrder: Array.isArray(saved.typeOrder) && saved.typeOrder.length
+          ? saved.typeOrder.filter(type => QUESTION_BANK_SLOTS.includes(type))
+          : QUESTION_BANK_SLOTS.filter(type => ((saved.results || {})[type] || []).length),
+        added: Number(saved.added) || 0,
+        skipped: Number(saved.skipped) || 0,
+        answersFilled: Number(saved.answersFilled) || 0,
+        completed: Number(saved.completed) || 0,
+        taskPointsCompleted: Number(saved.taskPointsCompleted) || 0,
+        failed: Number(saved.failed) || 0,
+        selectedTaskPoints,
+        nextIndex: Math.max(0, Number(saved.nextIndex) || 0),
+        logs: Array.isArray(saved.logs) ? saved.logs.slice() : [],
+        restoredAt: saved.savedAtText || ''
+      };
+      QUESTION_BANK_SLOTS.forEach(type => {
+        run.results[type] = ((saved.results || {})[type] || []).filter(Boolean);
+      });
+      return run;
+    }
+
+    // 检查是否有上次未完成的存档，并给用户明确的恢复入口。
+    function offerBatchProgressRecovery() {
+      const saved = loadBatchProgress();
+      if (!saved) return false;
+      const run = adoptSavedBatchProgress(saved);
+      if (!run) return false;
+      const total = QUESTION_BANK_SLOTS.reduce((sum, type) => sum + run.results[type].length, 0);
+      if (!total) return false;
+
+      batchPausedRun = run;
+      batchNote.textContent =
+        `检测到上次未完成的整门课提取（保存在 ${saved.savedAtText}）：` +
+        `已完成 ${run.completed} 个测验、累计 ${total} 题，进度停在第 ${run.nextIndex + 1} 章。` +
+        `点“继续提取”可从断点恢复；点“重新扫描目录”会丢弃该存档。`;
+      batchStartButton.textContent = '继续提取';
+      renderBatchLiveLog(run);
+      updateBatchProgress(
+        `发现未完成存档：第 ${run.nextIndex + 1} 章，累计 ${total} 题`,
+        `上次保存在 ${saved.savedAtText}。可继续提取，或重新扫描后重新开始。`,
+        run.nextIndex, (run.selectedTaskPoints || []).length
+      );
+      return true;
+    }
+
     function refreshBatchScan() {
       if (batchExtractionRun && batchExtractionRun.running) return;
       batchPausedRun = null;
@@ -11313,6 +11514,8 @@ Typr["U"] = {
       if (batchExtractionRun && batchExtractionRun.running) {
         batchExtractionRun.stopped = true;
         stopBatchDialogGuard();
+        // 停止时立即落盘，不等节流定时器。
+        try { saveBatchProgress(batchExtractionRun); } catch (e) {}
         batchStopButton.disabled = true;
         appendBatchLog(`已请求暂停：当前已完成 ${batchExtractionRun.completed} 个章节测验，累计 ${batchQuestionCount(batchExtractionRun)} 题。`, 'warn');
         updateBatchProgress('正在暂停提取…', `已完成 ${batchExtractionRun.completed} 个测验，累计 ${batchQuestionCount(batchExtractionRun)} 题；当前任务会尽快安全停下。`, batchExtractionRun.nextIndex || 0, (batchExtractionRun.selectedTaskPoints || []).length);
@@ -11341,7 +11544,34 @@ Typr["U"] = {
       if (shouldResume) {
         run = batchPausedRun;
         batchPausedRun = null;
-        selectedTaskPoints = Array.isArray(run.selectedTaskPoints) ? run.selectedTaskPoints : batchEntries.filter(entry => entry.selected);
+        selectedTaskPoints = Array.isArray(run.selectedTaskPoints) && run.selectedTaskPoints.length
+          ? run.selectedTaskPoints
+          : batchEntries.filter(entry => entry.selected);
+        // 恢复存档时，selectedTaskPoints 只有精简字段（无 DOM 引用），
+        // 需要重新扫描目录并把 label/knowledgeId 对齐到当前页面的真实任务点，
+        // 否则导航函数拿不到 tab 元素会全部失败。
+        if (selectedTaskPoints.length && !selectedTaskPoints[0].__fromScan) {
+          const scanned = scanChapterTestEntries();
+          const byKnowledge = new Map(scanned.map(entry => [String(entry.knowledgeId), entry]));
+          const byLabel = new Map(scanned.map(entry => [String(entry.label || '').trim(), entry]));
+          const aligned = [];
+          selectedTaskPoints.forEach(saved => {
+            const match = byKnowledge.get(String(saved.knowledgeId))
+              || byLabel.get(String(saved.label || '').trim());
+            if (match) {
+              match.selected = true;
+              if (saved.state === 'done') { match.state = 'done'; match.detail = saved.detail || ''; }
+              aligned.push(match);
+            } else {
+              // 目录里找不到（课程结构变了）：丢掉这条，但不影响其他章节。
+              aligned.push({ ...saved });
+            }
+          });
+          if (aligned.length) {
+            selectedTaskPoints = aligned;
+            batchEntries = scanned;
+          }
+        }
         startIndex = Math.max(0, Math.min(Number(run.nextIndex) || 0, selectedTaskPoints.length));
         run.id = `batch-run-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         run.running = true;
@@ -11355,6 +11585,7 @@ Typr["U"] = {
         run.longRestEveryCount = 0;
       } else {
         selectedTaskPoints = batchEntries.filter(entry => entry.selected);
+        selectedTaskPoints.forEach(entry => { entry.__fromScan = true; });
         run = {
           id: `batch-run-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           running: true, stopped: false, results: Object.fromEntries(QUESTION_BANK_SLOTS.map(type => [type, []])), typeOrder: [],
@@ -11366,7 +11597,11 @@ Typr["U"] = {
       run.selectedTaskPoints = selectedTaskPoints;
       run.nextIndex = startIndex;
       run.chapterIndex = startIndex;
+      run.title = run.title || (typeof getBatchCourseContext === 'function'
+        ? (getBatchCourseContext().courseName || '') : '');
       batchExtractionRun = run;
+      // 全新开始时清掉旧存档；继续时保留（会立刻被覆盖）。
+      if (!shouldResume) clearBatchProgress();
       if (!Array.isArray(run.logs)) run.logs = [];
       appendBatchLog(
         shouldResume
@@ -11535,6 +11770,9 @@ Typr["U"] = {
         clearBatchVisibleTask(run);
         run.activeTask = null;
         renderBatchEntries();
+        // 每章结束立即存盘：即使下一秒页面崩溃/刷新，已提取的题目也不会丢。
+        run.nextIndex = index + 1;
+        scheduleBatchProgressSave(run);
         if (!run.stopped && index < selectedTaskPoints.length - 1) {
           if (!await batchPause(run, currentBatchProfile().chapterCooldown)) break;
         }
@@ -11543,6 +11781,9 @@ Typr["U"] = {
       run.running = false;
       stopBatchDialogGuard();
       clearBatchVisibleTask(run);
+      // 正常跑完就清掉存档；被暂停或异常中断则保留，供下次恢复。
+      if (run.stopped) scheduleBatchProgressSave(run);
+      else clearBatchProgress();
       batchStopButton.classList.add('xxt-hidden');
       els.btnBatchExtract.disabled = false;
       els.btnExtract.disabled = false;
@@ -11576,12 +11817,18 @@ Typr["U"] = {
     els.btnBatchExtract.addEventListener('click', () => {
       if (batchPausedRun) {
         batchNote.textContent = `已暂停：完成 ${batchPausedRun.completed} 个测验，累计 ${batchQuestionCount(batchPausedRun)} 题。可继续提取，或重新扫描后重新开始。`;
-      } else {
+      } else if (!offerBatchProgressRecovery()) {
+        // 没有内存中的暂停态、也没有存档时，才重新扫描目录。
         refreshBatchScan();
       }
       batchModal.classList.add('open');
     });
-    batchModal.querySelector('#xxt-batch-rescan').addEventListener('click', refreshBatchScan);
+    // “重新扫描目录”意味着放弃旧进度，需要同时清掉存档，否则会反复提示恢复。
+    batchModal.querySelector('#xxt-batch-rescan').addEventListener('click', () => {
+      clearBatchProgress();
+      batchPausedRun = null;
+      refreshBatchScan();
+    });
     batchModal.querySelector('#xxt-batch-select-all').addEventListener('click', () => {
       if (batchExtractionRun && batchExtractionRun.running) return;
       batchEntries.forEach(entry => { entry.selected = true; }); renderBatchEntries();

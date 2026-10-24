@@ -2,7 +2,7 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 
-const tests = ['parse.test.js', 'docx.test.js', 'ai.test.js', 'dialog.test.js', 'editor-ai.test.js', 'editor-flow.test.js', 'bank-normalize.test.js', 'settings.test.js', 'ai-persist.test.js', 'export.test.js', 'export-flow.test.js', 'feedback-bugs.test.js', 'checkbox.test.js', 'pacing.test.js', 'declaration-order.test.js', 'smoke.test.js', 'type-infer.test.js'];
+const tests = ['parse.test.js', 'docx.test.js', 'ai.test.js', 'dialog.test.js', 'editor-ai.test.js', 'editor-flow.test.js', 'bank-normalize.test.js', 'settings.test.js', 'ai-persist.test.js', 'export.test.js', 'export-flow.test.js', 'feedback-bugs.test.js', 'checkbox.test.js', 'pacing.test.js', 'declaration-order.test.js', 'smoke.test.js', 'type-infer.test.js', 'batch-progress.test.js'];
 let failed = 0;
 
 for (const file of tests) {
