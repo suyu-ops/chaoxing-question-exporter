@@ -1,0 +1,7 @@
+# 依赖
+node_modules/
+package-lock.json
+package.json
+
+# 测试临时产物
+.test/.build-*.js
