@@ -7,7 +7,8 @@ const code = buildModule({
   xxtParseQuestionsFromText: 'xxtParseQuestionsFromText',
   xxtNormalizeType: 'xxtNormalizeType',
   xxtJudgeAnswerFromLetter: 'xxtJudgeAnswerFromLetter',
-  xxtLooksLikeJudgeAnswer: 'xxtLooksLikeJudgeAnswer'
+  xxtLooksLikeJudgeAnswer: 'xxtLooksLikeJudgeAnswer',
+  xxtInferQuestionType: 'xxtInferQuestionType'
 });const modulePath = path.join(__dirname, '.build-parse.js');
 fs.writeFileSync(modulePath, code);
 const { xxtParseQuestionsFromText, xxtNormalizeType } = require(modulePath);

@@ -51,6 +51,9 @@ function buildModule(exportsMap, prelude = '') {
   const parts = [
     'const QUESTION_BANK_TYPES = ["\u5355\u9009","\u591a\u9009","\u586b\u7a7a","\u5224\u65ad","\u7b80\u7b54"];',
     'const XXT_TYPE_LABELS = { "\u5355\u9009": "\u5355\u9009\u9898", "\u591a\u9009": "\u591a\u9009\u9898", "\u586b\u7a7a": "\u586b\u7a7a\u9898", "\u5224\u65ad": "\u5224\u65ad\u9898", "\u7b80\u7b54": "\u7b80\u7b54\u9898" };'
+    , 'const QUESTION_BANK_UNSURE = "不确定";'
+    , 'const QUESTION_BANK_SLOTS = [...QUESTION_BANK_TYPES, QUESTION_BANK_UNSURE];'
+    , "const TYPE_RULES = [\n    // 多选题的各种写法\n    { test: /多项选择|多选|不定项|multiple[\\s_-]*choice|checkbox/i, type: '多选' },\n    // 判断题的各种写法\n    { test: /判断|正误|是非|true[\\s_/或-]*(?:or[\\s_-]*)?false|judg(e|ment)/i, type: '判断' },\n    // 填空题\n    { test: /填空|fill[\\s_-]*(?:in[\\s_-]*)?(?:the[\\s_-]*)?blank/i, type: '填空' },\n    // 简答类\n    { test: /简答|问答|论述|名词解释|案例分析|计算题|essay|subjective/i, type: '简答' },\n    // 单选类（含宽泛的“选择题”，必须放最后）\n    { test: /单项选择|单选|选择|single[\\s_-]*choice|radio/i, type: '单选' }\n  ];"
   ];
   if (prelude) parts.push(prelude);
   // exportsMap: { exportName: sourceName }

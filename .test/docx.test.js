@@ -14,7 +14,8 @@ const code = buildModule({
   xxtDocxXmlToText: 'xxtDocxXmlToText',
   xxtDetectBankFileKind: 'xxtDetectBankFileKind',
   xxtJudgeAnswerFromLetter: 'xxtJudgeAnswerFromLetter',
-  xxtLooksLikeJudgeAnswer: 'xxtLooksLikeJudgeAnswer'
+  xxtLooksLikeJudgeAnswer: 'xxtLooksLikeJudgeAnswer',
+  xxtInferQuestionType: 'xxtInferQuestionType'
 });
 const modulePath = path.join(__dirname, '.build-docx.js');
 fs.writeFileSync(modulePath, code);

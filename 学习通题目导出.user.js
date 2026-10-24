@@ -2,7 +2,7 @@
 // @name         学习通-随堂测验/章节测试/作业/考试题目一键提取导出pdf/word/txt/markdown格式文档
 // @namespace    https://tiku888.top/
 // @license      GPL-3.0
-// @version      1.9.1
+// @version      1.10.0
 // @run-at       document-start
 // @description  一键提取学习通作业题目，支持富文本（图文混排）及 Word/PDF/TXT/MD 四种格式导出、按课程任务点自动逐个提取章节测验、题目勾选后按范围导出，答案/错题收集，独立题库区（新建/存取/编辑/手动添加/导入/四种格式导出/题库对比），暗色模式，快捷键，iframe 提取
 // @author       suyu
@@ -3675,6 +3675,9 @@ Typr["U"] = {
 #xxt-bank-modal .xxt-bank-badge.xxt-bank-badge-missing { background:rgba(245,158,11,.16); color:#b45309; }
 #xxt-bank-modal .xxt-bank-badge.xxt-bank-badge-ai { background:rgba(16,185,129,.16); color:#047857; }
 #xxt-bank-modal .xxt-bank-badge.xxt-bank-badge-low { background:rgba(239,68,68,.14); color:#b91c1c; }
+#xxt-bank-modal .xxt-bank-badge.xxt-bank-badge-unsure { background:rgba(139,92,246,.16); color:#6d28d9; }
+#xxt-bank-modal .xxt-bank-unsure-note { background:rgba(139,92,246,.07); border:1px dashed rgba(139,92,246,.35); }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-badge.xxt-bank-badge-unsure { background:rgba(167,139,250,.2); color:#ddd6fe; }
 #xxt-bank-modal .xxt-bank-explanation { margin-top:8px; padding:7px 9px; border-radius:9px; background:rgba(59,130,246,.07); color:var(--xxt-text-soft); font-size:11px; line-height:1.6; overflow-wrap:anywhere; }
 #xxt-bank-modal .xxt-bank-card-selected .xxt-bank-card-actions button[data-bank-action="ai"] { border-color:var(--xxt-accent); color:var(--xxt-accent-strong); }
 
@@ -4492,7 +4495,16 @@ Typr["U"] = {
   // 这样在 chaoxing.com、edu.cn 等不同页面来源之间也能共享；未提供 GM 存储时
   // 回退到 localStorage，并在导入/导出中提供可靠的跨域迁移方式。
   const QUESTION_BANK_KEY = 'xxt_question_banks_v1';
+  // 真实题型。'不确定' 不是题型，而是「待归类」状态：导入时无法从文本
+  // 可靠判断的题目会落到这里，之后可用规则复核或 AI 审核再归类。
   const QUESTION_BANK_TYPES = ['单选', '多选', '填空', '判断', '简答'];
+  const QUESTION_BANK_UNSURE = '不确定';
+  // 存储/导出时实际使用的槽位（含待归类）
+  const QUESTION_BANK_SLOTS = [...QUESTION_BANK_TYPES, QUESTION_BANK_UNSURE];
+  const QUESTION_BANK_TYPE_LABELS = {
+    '单选': '单选题', '多选': '多选题', '填空': '填空题',
+    '判断': '判断题', '简答': '简答题', [QUESTION_BANK_UNSURE]: '待归类'
+  };
   const QUESTION_BANK_MAX_BYTES = 8 * 1024 * 1024;
   let questionBankStateCache = null;
   // 其他标签页修改题库后，当前页下次打开题库会重新读取外部存储。
@@ -4553,7 +4565,7 @@ Typr["U"] = {
       name: String(name || '默认题库').trim().substring(0, 80) || '默认题库',
       createdAt: now, updatedAt: now,
       typeOrder: [],
-      results: Object.fromEntries(QUESTION_BANK_TYPES.map(type => [type, []]))
+      results: Object.fromEntries(QUESTION_BANK_SLOTS.map(type => [type, []]))
     };
   }
 
@@ -4578,23 +4590,19 @@ Typr["U"] = {
   }
 
   function normalizeImportedBankType(value, question) {
-    const raw = String(value || '').toLowerCase();
+    // 已有明确题型声明直接用
     const detected = detectTypeFromText(value);
     if (detected) return detected;
-    if (/multiple|multi[_ -]?choice|checkbox/.test(raw)) return '多选';
-    if (/single|radio|choice/.test(raw)) return '单选';
-    if (/judge|true[_ -]?false/.test(raw)) return '判断';
-    if (/fill|blank/.test(raw)) return '填空';
-    if (/essay|subjective|short[_ -]?answer/.test(raw)) return '简答';
+    // 否则走统一推断器：信息不足时返回 '不确定' 而不是猜一个。
     const options = Array.isArray(question && question.options) ? question.options : [];
     const answer = String(question && (question.correctAnswer || question.answer || question.rightAnswer) || '');
-    if (options.length > 1 && (/[,，、;；]/.test(answer) || /^[A-H]{2,}$/i.test(answer.replace(/\s/g, '')))) return '多选';
-    if (options.length === 2 && /^(正确|错误|对|错|√|×|true|false)$/i.test(answer.trim())) return '判断';
-    return options.length ? '单选' : '填空';
+    const stem = String(question && (question.stem || question.question || question.title) || '');
+    const inferred = xxtInferQuestionType({ stem, options, answer, declaredType: value });
+    return inferred.type;
   }
 
   function getImportedBankResultLists(source) {
-    const grouped = Object.fromEntries(QUESTION_BANK_TYPES.map(type => [type, []]));
+    const grouped = Object.fromEntries(QUESTION_BANK_SLOTS.map(type => [type, []]));
     const rawResults = source && source.results;
     const flatQuestions = Array.isArray(rawResults) ? rawResults
       : Array.isArray(source && source.questions) ? source.questions
@@ -4610,7 +4618,7 @@ Typr["U"] = {
       Object.entries(rawResults).forEach(([rawType, list]) => {
         if (!Array.isArray(list)) return;
         list.forEach(question => {
-          const type = QUESTION_BANK_TYPES.includes(rawType) ? rawType : normalizeImportedBankType(rawType, question);
+          const type = QUESTION_BANK_SLOTS.includes(rawType) ? rawType : normalizeImportedBankType(rawType, question);
           grouped[type].push(question);
         });
       });
@@ -4677,7 +4685,7 @@ Typr["U"] = {
     normalized.updatedAt = source.updatedAt || normalized.updatedAt;
     const rawResults = getImportedBankResultLists(source);
     const typeOrder = Array.isArray(source.typeOrder) ? source.typeOrder : [];
-    const order = [...QUESTION_BANK_TYPES.filter(type => typeOrder.includes(type)), ...QUESTION_BANK_TYPES.filter(type => !typeOrder.includes(type))];
+    const order = [...QUESTION_BANK_SLOTS.filter(type => typeOrder.includes(type)), ...QUESTION_BANK_SLOTS.filter(type => !typeOrder.includes(type))];
     const seen = new Set();
     order.forEach(type => {
       const list = Array.isArray(rawResults[type]) ? rawResults[type] : [];
@@ -4754,7 +4762,7 @@ Typr["U"] = {
   }
 
   function bankQuestionCount(bank) {
-    return QUESTION_BANK_TYPES.reduce((sum, type) => sum + ((bank && bank.results && bank.results[type]) || []).length, 0);
+    return QUESTION_BANK_SLOTS.reduce((sum, type) => sum + ((bank && bank.results && bank.results[type]) || []).length, 0);
   }
 
   function bankTotalCount(state = loadQuestionBankState()) {
@@ -4769,9 +4777,12 @@ Typr["U"] = {
 
   function buildExtractedDataFromBank(bank) {
     const normalized = normalizeQuestionBank(bank);
+    // 导出时不带「待归类」：试卷需要明确题型分区，未归类题容易排到错误位置。
     const results = Object.fromEntries(QUESTION_BANK_TYPES.map(type => [type, (normalized.results[type] || []).map(question => ({ ...question }))]));
     const data = {
-      title: normalized.name, typeOrder: normalized.typeOrder.slice(), results,
+      title: normalized.name,
+      typeOrder: normalized.typeOrder.filter(type => QUESTION_BANK_TYPES.includes(type)),
+      results,
       text: '', textWithAnswers: '', textWrong: '', textMD: '',
       textWithAnswersMD: '', textWrongMD: ''
     };
@@ -4784,7 +4795,7 @@ Typr["U"] = {
     QUESTION_BANK_TYPES.forEach(type => (target.results[type] || []).forEach(question => seen.set(bankQuestionIdentity(type, question), question)));
     let added = 0, skipped = 0, answersFilled = 0;
     Object.entries((data && data.results) || {}).forEach(([type, questions]) => {
-      if (!QUESTION_BANK_TYPES.includes(type)) return;
+      if (!QUESTION_BANK_SLOTS.includes(type)) return;
       if (!Array.isArray(target.results[type])) target.results[type] = [];
       questions.forEach(rawQuestion => {
         const question = normalizeBankQuestion(rawQuestion);
@@ -4812,7 +4823,7 @@ Typr["U"] = {
 
   function createExtractedDataFromResults(results, typeOrder, title) {
     const data = { title: title || '学习通题库', results: {}, typeOrder: [] };
-    QUESTION_BANK_TYPES.forEach(type => { data.results[type] = Array.isArray(results && results[type]) ? results[type] : []; });
+    QUESTION_BANK_SLOTS.forEach(type => { data.results[type] = Array.isArray(results && results[type]) ? results[type] : []; });
     (typeOrder || QUESTION_BANK_TYPES).forEach(type => {
       if (data.results[type] && data.results[type].length && !data.typeOrder.includes(type)) data.typeOrder.push(type);
     });
@@ -4968,35 +4979,42 @@ Typr["U"] = {
     }
     flush();
 
-    // 按题型分组，并给出最终结构
-    const grouped = Object.fromEntries(QUESTION_BANK_TYPES.map(type => [type, []]));
+    // 按槽位分组（含“不确定”）。题型不再靠猜，而是走带置信度的推断：
+    // 信号不足或冲突时落到“不确定”，避免静默错分类。
+    const grouped = Object.fromEntries(QUESTION_BANK_SLOTS.map(type => [type, []]));
     collected.forEach(item => {
       const options = (item.options || []).map((value, index) => String(value || '').trim()).filter(Boolean);
-      let type = item.type || '';
       const answer = String(item.answer || '').trim();
-      if (!type) {
-        if (!options.length) {
-          type = /[（(]\s*[）)]/.test(item.stem) || /_{2,}|（\s*）|﹍/.test(item.stem) ? '填空' : '简答';
-        } else if (options.length === 2 && xxtLooksLikeJudgeAnswer(answer, options)) {
-          type = '判断';
-        } else if (/[,，、;；]/.test(answer) || /^[A-H]{2,}$/i.test(answer.replace(/\s/g, ''))) {
-          type = '多选';
-        } else {
-          type = '单选';
-        }
-      }
-      const normalizedAnswer = type === '判断'
-        ? (/^(正确|对|是|√|✓|true|t|yes)$/i.test(answer) ? '对'
+
+      const inferred = xxtInferQuestionType({
+        stem: item.stem,
+        options,
+        answer,
+        declaredType: item.type || ''
+      });
+      const type = inferred.type;
+
+      // 只有在已经确定题型时才做答案归一化；待归类的题保留原文，
+      // 等 AI 审核归类后再统一处理，避免把答案改坏。
+      let normalizedAnswer = answer;
+      if (type === '判断') {
+        normalizedAnswer = /^(正确|对|是|√|✓|true|t|yes)$/i.test(answer) ? '对'
           : /^(错误|错|否|×|✗|false|f|no)$/i.test(answer) ? '错'
-            // 判断题常用“A. 正确 / B. 错误”，把字母换算成对/错。
-            : xxtJudgeAnswerFromLetter(answer, options) || answer)
-        : (/^[A-Ha-h][\s,，、|/]*$/.test(answer) && type !== '填空' ? answer.replace(/\s/g, '').toUpperCase() : answer);
+            : xxtJudgeAnswerFromLetter(answer, options) || answer;
+      } else if (type && type !== QUESTION_BANK_UNSURE && type !== '填空') {
+        normalizedAnswer = (/^[A-Ha-h][\s,，、|/]*$/.test(answer) ? answer.replace(/\s/g, '').toUpperCase() : answer);
+      }
+
       grouped[type].push({
         stem: item.stem,
         options: options.length ? options : undefined,
         correctAnswer: normalizedAnswer,
         explanation: item.analysis || '',
-        typeName: type
+        typeName: type,
+        // 保留推断依据，题库里可提示“为什么被判成待归类”。
+        typeConfidence: inferred.confidence,
+        typeReason: inferred.reason,
+        suggestedType: inferred.suggestedType || ''
       });
     });
     return grouped;
@@ -5010,6 +5028,97 @@ Typr["U"] = {
     if (/^(正确|对|是|√|✓|true|t|yes)/i.test(text)) return '对';
     if (/^(错误|错|否|×|✗|false|f|no)/i.test(text)) return '错';
     return '';
+  }
+
+  // ==================== 题型推断（可解释、带置信度） ====================
+  // 导入时经常遇到「没有题型说明，只有题干+选项+答案」的文件。
+  // 这里用一组明确规则推断题型，并给出置信度：
+  //   high   —— 多个信号一致，可直接归类
+  //   medium —— 单一强信号，通常可直接归类
+  //   low    —— 信息不足或有冲突，标为「不确定」交给人工/AI
+  // 设计原则：宁可标「不确定」，也不要静默错分类。
+  function xxtInferQuestionType(input) {
+    const stem = String((input && input.stem) || '').trim();
+    const options = (Array.isArray(input && input.options) ? input.options : [])
+      .map(value => String(value == null ? '' : value).trim()).filter(Boolean);
+    const answer = String((input && input.answer) || '').trim();
+    const declaredType = xxtNormalizeType((input && input.declaredType) || '');
+
+    const evidence = [];
+    const vote = (type, weight, reason) => evidence.push({ type, weight, reason });
+
+    // 1) 显式声明优先（【多选题】、大题标题等）
+    if (declaredType) {
+      return { type: declaredType, confidence: 'high', score: 1, reason: '文件中有明确的题型说明', evidence: [{ type: declaredType, weight: 10, reason: '显式题型' }] };
+    }
+
+    const optionCount = options.length;
+    const compactAnswer = answer.replace(/[\s,，、;；|\/\\]/g, '');
+
+    // 2) 判断题信号：两个对错式选项，或答案是判断词
+    const judgeOptionPair = optionCount === 2 && options.every(text =>
+      /^(正确|错误|对|错|是|否|√|×|✓|✗|真|假|true|false|t|f|yes|no)$/i.test(text.replace(/[。.!！]/g, '').trim()));
+    const judgeByWord = /^(正确|错误|对|错|是|否|√|×|✓|✗|真|假|true|false|t|f|yes|no|A|B)$/i.test(answer);
+    if (judgeOptionPair) vote('判断', 6, '选项为「对/错」两个');
+    if (judgeOptionPair && /^[AB]$/i.test(answer)) vote('判断', 5, '答案指向对/错选项');
+    if (!optionCount && /^(正确|错误|对|错|√|×|✓|✗|true|false)$/i.test(answer)) vote('判断', 5, '无选项且答案为判断词');
+    if (optionCount === 2 && judgeByWord && !judgeOptionPair) vote('判断', 2, '两个选项且答案为判断词');
+
+    // 3) 多选信号：答案含多个字母/分隔符，且题干无填空标记
+    const answerLetters = compactAnswer.toUpperCase().match(/^[A-H]+$/);
+    const hasFillMarker = /_{2,}|﹍|（\s*）|\(\s*\)|\[\s*\]/.test(stem);
+    if (optionCount >= 2 && answerLetters) {
+      if (answerLetters[0].length >= 2) vote('多选', 5, `答案为多个选项字母（${answerLetters[0]}）`);
+      else vote('单选', 4, '答案为单个选项字母');
+    }
+    if (optionCount >= 2 && /[,，、;；]/.test(answer) && !hasFillMarker) {
+      const parts = answer.split(/[,，、;；]/).map(part => part.trim()).filter(Boolean);
+      if (parts.length >= 2 && parts.every(part => /^[A-H]$/i.test(part))) vote('多选', 5, '答案用分隔符列出多个选项');
+      else if (parts.length >= 2) vote('多选', 1, '答案含分隔符（可能是填空多答案）');
+    }
+
+    // 4) 单选信号：多个选项 + 单个字母答案
+    if (optionCount >= 3 && answerLetters && answerLetters[0].length === 1) vote('单选', 4, '多个选项且答案为单字母');
+
+    // 5) 填空信号：题干有下划线/括号空位，且没有选项
+    if (!optionCount && hasFillMarker) vote('填空', 5, '题干含空位标记且无选项');
+
+    // 6) 简答信号：没有选项、没有空位、答案较长
+    if (!optionCount && !hasFillMarker) {
+      if (answer.length >= 12) vote('简答', 4, '无选项无空位，答案是一段文字');
+      else vote('简答', 2, '无选项无空位');
+    }
+
+    if (!evidence.length) {
+      return { type: QUESTION_BANK_UNSURE, confidence: 'low', score: 0, reason: '信息不足，无法判断题型', evidence };
+    }
+
+    // 汇总投票
+    const totals = new Map();
+    evidence.forEach(item => totals.set(item.type, (totals.get(item.type) || 0) + item.weight));
+    const ranked = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+    const [bestType, bestScore] = ranked[0];
+    const runnerUpScore = ranked[1] ? ranked[1][1] : 0;
+    const margin = bestScore - runnerUpScore;
+
+    // 冲突检测：多选 vs 单选、填空 vs 简答 分数接近时说明信息打架
+    const conflict = ranked.length > 1 && margin <= 1;
+    let confidence;
+    if (conflict || bestScore < 4) confidence = 'low';
+    else if (margin >= 4 && bestScore >= 6) confidence = 'high';
+    else confidence = 'medium';
+
+    const reasons = evidence.filter(item => item.type === bestType).map(item => item.reason);
+    return {
+      type: confidence === 'low' ? QUESTION_BANK_UNSURE : bestType,
+      confidence,
+      score: bestScore,
+      reason: confidence === 'low'
+        ? '题型信号冲突或不足，暂标为待归类'
+        : reasons.join('；'),
+      evidence,
+      suggestedType: bestType
+    };
   }
 
   // 是否为“对/错”类题：答案是判断词，或选项内容本身表达对错。
@@ -5209,12 +5318,26 @@ Typr["U"] = {
 
     report('正在识别题目结构…');
     const grouped = xxtParseQuestionsFromText(text);
-    const total = QUESTION_BANK_TYPES.reduce((sum, type) => sum + grouped[type].length, 0);
+    const total = QUESTION_BANK_SLOTS.reduce((sum, type) => sum + grouped[type].length, 0);
     if (!total) {
       throw new Error('未能从文件中识别出题目；请确认题目题号为“1.”、选项为“A.”、答案为“答案：”等常见格式');
     }
     const bank = normalizeQuestionBank({ name: baseName, results: grouped });
-    return { kind, banks: [bank], rawTextLength: String(text).length };
+    // 汇总识别结果，让用户导入前就知道有多少题需要复核。
+    const breakdown = {};
+    QUESTION_BANK_SLOTS.forEach(type => {
+      const count = (bank.results[type] || []).length;
+      if (count) breakdown[type] = count;
+    });
+    const unsureCount = (bank.results[QUESTION_BANK_UNSURE] || []).length;
+    const withAnswer = QUESTION_BANK_SLOTS.reduce((sum, type) =>
+      sum + (bank.results[type] || []).filter(q => String(q.correctAnswer || '').trim()).length, 0);
+    const withExplanation = QUESTION_BANK_SLOTS.reduce((sum, type) =>
+      sum + (bank.results[type] || []).filter(q => String(q.explanation || '').trim()).length, 0);
+    return {
+      kind, banks: [bank], rawTextLength: String(text).length,
+      breakdown, unsureCount, withAnswer, withExplanation, total
+    };
   }
 
   // isSupportedQuestionBankImport 定义在 createPanel 内，这里提供同语义的全局版本。
@@ -5438,6 +5561,78 @@ Typr["U"] = {
         ].filter(Boolean).join('\n')
       }
     ];
+  }
+
+  // ==================== AI 题型归类 ====================
+  // 用于「待归类」的题目：让 AI 判断题型，并顺带补齐答案。
+  // 与补答案不同点在于：这里题型本身也未定，所以提示词要让模型先定题型，
+  // 再按该题型给答案（判断题给对/错，选择题给字母，多选给多个字母）。
+  function xxtBuildAiClassifyPrompt(question) {
+    const stem = richTextOnly(questionContent(question)).replace(/\s+/g, ' ').trim();
+    const options = (question.options || [])
+      .map((option, index) => {
+        const letter = option.letter || String.fromCharCode(65 + index);
+        const text = richTextOnly(optionContent(option)).replace(/\s+/g, ' ').trim();
+        return `${letter}. ${text}`;
+      })
+      .join('\n');
+    const existingAnswer = String(question.correctAnswer || richTextOnly(answerContent(question)) || '').trim();
+    return [
+      {
+        role: 'system',
+        content: '你是严谨的学科题库整理专家。只输出一个 JSON 对象，不要输出 Markdown 代码块或任何额外说明文字。'
+      },
+      {
+        role: 'user',
+        content: [
+          '任务：判断下面这道题的题型，并给出正确答案。',
+          `题干：${stem}`,
+          options ? `选项：\n${options}` : '选项：（无，题干中没有可选项）',
+          existingAnswer ? `文件中已有的答案（可能不准确）：${existingAnswer}` : '文件中没有提供答案',
+          '',
+          '题型只能从这五个里选：单选、多选、填空、判断、简答。',
+          '判定要求：',
+          '- 有选项且只能选一个 → 单选',
+          '- 有选项且可多选 → 多选',
+          '- 选项成对出现“正确/错误”或“对/错”→ 判断',
+          '- 无选项且题干有空格/下划线 → 填空',
+          '- 无选项且要求作答一段文字 → 简答',
+          '',
+          '答案格式要求：',
+          '- 单选：单个选项字母，如 "A"',
+          '- 多选：按字母升序拼接，如 "ABD"',
+          '- 判断：只能是 "对" 或 "错"',
+          '- 填空：多个空按顺序用 "；" 分隔',
+          '- 简答：简洁要点，200 字以内',
+          '',
+          '输出格式：{"type":"题型","answer":"答案","confidence":0.0到1.0之间的小数,"reason":"判定依据，50字以内"}',
+          '若实在无法判断题型，type 返回 "不确定"。'
+        ].filter(Boolean).join('\n')
+      }
+    ];
+  }
+
+  function xxtNormalizeClassifiedType(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return '';
+    if (QUESTION_BANK_TYPES.includes(text)) return text;
+    return xxtNormalizeType(text) || '';
+  }
+
+  async function xxtAiClassifyQuestion(question) {
+    const content = await xxtAiChat(xxtBuildAiClassifyPrompt(question));
+    const parsed = xxtExtractJson(content);
+    if (!parsed) throw new Error('AI 返回内容无法解析为 JSON');
+    const type = xxtNormalizeClassifiedType(parsed.type);
+    const confidence = Math.max(0, Math.min(1, Number(parsed.confidence) || 0));
+    const answer = type ? xxtNormalizeAiAnswer(parsed.answer, type) : String(parsed.answer || '').trim();
+    return {
+      type,
+      answer,
+      confidence,
+      reason: String(parsed.reason || '').trim().substring(0, 300),
+      raw: content
+    };
   }
 
   async function xxtAiExplainQuestion(question, type) {
@@ -11162,7 +11357,7 @@ Typr["U"] = {
         selectedTaskPoints = batchEntries.filter(entry => entry.selected);
         run = {
           id: `batch-run-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          running: true, stopped: false, results: Object.fromEntries(QUESTION_BANK_TYPES.map(type => [type, []])), typeOrder: [],
+          running: true, stopped: false, results: Object.fromEntries(QUESTION_BANK_SLOTS.map(type => [type, []])), typeOrder: [],
           added: 0, skipped: 0, answersFilled: 0, completed: 0, taskPointsCompleted: 0, failed: 0, activeFrame: null,
           selectedTaskPoints, nextIndex: 0, noTasks: false
         };
@@ -11458,6 +11653,7 @@ Typr["U"] = {
           <div class="xxt-bank-ai-actions" id="xxt-bank-ai-actions">
             <button type="button" data-ai-action="fill-missing">一键补充无答案题</button>
             <button type="button" data-ai-action="fill-explanation">一键补全解析</button>
+            <button type="button" data-ai-action="classify">AI 审核归类待定题型</button>
             <button type="button" data-ai-action="review-all">一键审核全部题目</button>
             <button type="button" data-ai-action="fix-selected">处理勾选题目</button>
             <button type="button" data-ai-action="stop" disabled>停止</button>
@@ -11474,11 +11670,13 @@ Typr["U"] = {
             <option value="填空">填空题</option>
             <option value="判断">判断题</option>
             <option value="简答">简答题</option>
+            <option value="不确定">待归类</option>
           </select>
           <select id="xxt-bank-status-filter" aria-label="按状态筛选">
             <option value="">全部状态</option>
             <option value="missing">无答案</option>
             <option value="no-explanation">无解析</option>
+            <option value="unsure">待归类</option>
             <option value="ai">AI 答案</option>
             <option value="low">低置信度</option>
           </select>
@@ -11561,7 +11759,7 @@ Typr["U"] = {
     let saveBankMode = 'existing';
     // 题库句柄使用「type\u0001index」稳定标识，筛选项变化后勾选不会错位。
     const bankSelectedKeys = new Set();
-    const bankTypeLabels = { '单选': '单选题', '多选': '多选题', '填空': '填空题', '判断': '判断题', '简答': '简答题' };
+    const bankTypeLabels = QUESTION_BANK_TYPE_LABELS;
 
     function bankQuestionKey(type, index) {
       return `${type}\u0001${index}`;
@@ -11786,6 +11984,13 @@ Typr["U"] = {
 
       const badges = [];
       const hasAnswer = !!String(answer || '').trim();
+      // 待归类：显示醒目徽章 + 推断器给出的建议，方便用户决定是否 AI 归类。
+      if (type === QUESTION_BANK_UNSURE) {
+        const suggestion = question.suggestedType
+          ? `AI/规则建议：${QUESTION_BANK_TYPE_LABELS[question.suggestedType] || question.suggestedType}`
+          : '题型未知';
+        badges.push(`<span class="xxt-bank-badge xxt-bank-badge-unsure" title="${xxtEscapeAttr(question.typeReason || '')}">${xxtEscapeHtml(suggestion)}</span>`);
+      }
       if (!hasAnswer) badges.push('<span class="xxt-bank-badge xxt-bank-badge-missing">无答案</span>');
       if (question.answerSource === 'ai') {
         const confidence = Number(question.aiConfidence);
@@ -11799,6 +12004,10 @@ Typr["U"] = {
       const explanation = String(question.explanation || '').trim();
       const explanationBlock = explanation
         ? '<div class="xxt-bank-explanation">解析：' + bankTextToHtml(explanation, '') + '</div>'
+        : '';
+      // 待归类题目额外说明推断过程，避免用户困惑「为什么它在这儿」。
+      const unsureBlock = (type === QUESTION_BANK_UNSURE && question.typeReason)
+        ? '<div class="xxt-bank-explanation xxt-bank-unsure-note">归类依据：' + bankTextToHtml(question.typeReason, '') + '</div>'
         : '';
 
       return '<article class="xxt-bank-card' + (selected ? ' xxt-bank-card-selected' : '') + '" data-bank-type="' + xxtEscapeAttr(type) + '" data-bank-index="' + index + '">' +
@@ -11814,6 +12023,7 @@ Typr["U"] = {
         optionBlock +
         '<div class="xxt-bank-answer"><span class="xxt-bank-answer-label">答案</span><span class="xxt-bank-answer-value">' + bankTextToHtml(answer, '未提取到答案') + '</span></div>' +
         explanationBlock +
+        unsureBlock +
         '<div class="xxt-bank-card-actions">' +
           '<button data-bank-action="ai">AI 补答案</button>' +
           '<button data-bank-action="ai-explain">' + (explanation ? 'AI 重写解析' : 'AI 补解析') + '</button>' +
@@ -11832,7 +12042,7 @@ Typr["U"] = {
       const typeFilter = bankTypeFilter ? bankTypeFilter.value : '';
       const statusFilter = bankStatusFilter ? bankStatusFilter.value : '';
       const rows = [];
-      QUESTION_BANK_TYPES.forEach(type => {
+      QUESTION_BANK_SLOTS.forEach(type => {
         if (typeFilter && typeFilter !== type) return;
         (bank.results[type] || []).forEach((question, index) => {
           const searchable = [richTextOnly(questionContent(question)), ...(question.options || []).map(option => richTextOnly(optionContent(option))), richTextOnly(answerContent(question))].join(' ').toLowerCase();
@@ -11840,6 +12050,7 @@ Typr["U"] = {
           const hasAnswer = !!String(richTextOnly(answerContent(question)) || '').trim();
           if (statusFilter === 'missing' && hasAnswer) return;
           if (statusFilter === 'no-explanation' && String(question.explanation || '').trim()) return;
+          if (statusFilter === 'unsure' && type !== QUESTION_BANK_UNSURE) return;
           if (statusFilter === 'ai' && question.answerSource !== 'ai') return;
           if (statusFilter === 'low') {
             const confidence = Number(question.aiConfidence);
@@ -11882,7 +12093,7 @@ Typr["U"] = {
       const start = (bankCurrentPage - 1) * BANK_PAGE_SIZE;
       const pageRows = rows.slice(start, start + BANK_PAGE_SIZE);
       const query = !!(bankSearchText.trim() || (bankTypeFilter && bankTypeFilter.value) || (bankStatusFilter && bankStatusFilter.value));
-      const groups = QUESTION_BANK_TYPES.map(type => {
+      const groups = QUESTION_BANK_SLOTS.map(type => {
         const typeRows = pageRows.filter(row => row.type === type);
         if (!typeRows.length) return '';
         const total = rows.filter(row => row.type === type).length;
@@ -11951,11 +12162,75 @@ Typr["U"] = {
     }
 
     // 把 AI 结果写回题库中的同一道题（不重建题库，避免 id 变化后勾选错位）。
+    // 把「待归类」的题目移动到 AI 判定的题型槽位，并写入答案。
+    // 注意：批量过程中会连续移动，必须先按 index 降序处理，否则同一槽位
+    // 里的下标会随着 splice 全部错位。
+    function applyAiReclassification(active, entries) {
+      const moves = entries.filter(e => e.reclassifyTo && e.reclassifyTo !== e.type);
+      if (!moves.length) return 0;
+
+      // 先取出题对象（连同原下标），避免移动过程中丢失引用。
+      const jobs = [];
+      moves.forEach(entry => {
+        const list = active.results[entry.type];
+        if (!list || !list[entry.index]) return;
+        jobs.push({ entry, question: list[entry.index] });
+      });
+      if (!jobs.length) return 0;
+
+      // 按原槽位分组、index 降序删除
+      const byType = new Map();
+      jobs.forEach(job => {
+        if (!byType.has(job.entry.type)) byType.set(job.entry.type, []);
+        byType.get(job.entry.type).push(job);
+      });
+      byType.forEach((group, type) => {
+        group.sort((a, b) => b.entry.index - a.entry.index);
+        const list = active.results[type];
+        group.forEach(job => {
+          const current = list[job.entry.index];
+          if (current === job.question) list.splice(job.entry.index, 1);
+          else {
+            const at = list.indexOf(job.question);
+            if (at >= 0) list.splice(at, 1);
+          }
+        });
+      });
+
+      // 再写入目标槽位
+      jobs.forEach(({ entry, question }) => {
+        const targetType = entry.reclassifyTo;
+        if (!Array.isArray(active.results[targetType])) active.results[targetType] = [];
+        question.typeConfidence = Number(entry.confidence) >= 0.6 ? 'high' : 'low';
+        question.typeReason = entry.reason || 'AI 归类';
+        question.typeSource = 'ai';
+        question.suggestedType = '';
+        if (entry.answer) {
+          question.correctAnswer = entry.answer;
+          question.correctAnswerContent = [{ type: 'text', text: entry.answer }];
+          question.answerSource = 'ai';
+          question.aiConfidence = entry.confidence;
+          question.aiUpdatedAt = new Date().toISOString();
+        }
+        active.results[targetType].push(question);
+      });
+
+      // 重建题型顺序
+      active.typeOrder = QUESTION_BANK_SLOTS.filter(type => (active.results[type] || []).length);
+      return jobs.length;
+    }
+
     function applyAiAnswerToBankQuestions(entries) {
       const state = loadQuestionBankState();
       const active = state.banks.find(bank => bank.id === state.activeBankId) || state.banks[0];
       if (!active) return;
-      entries.forEach(entry => {
+
+      // 归类条目单独处理（涉及跨槽位移动），其余按原逻辑原地更新。
+      const reclassifyEntries = entries.filter(entry => entry.reclassifyTo);
+      const plainEntries = entries.filter(entry => !entry.reclassifyTo);
+      if (reclassifyEntries.length) applyAiReclassification(active, reclassifyEntries);
+
+      plainEntries.forEach(entry => {
         const list = active.results[entry.type];
         const question = list && list[entry.index];
         if (!question) return;
@@ -12003,6 +12278,9 @@ Typr["U"] = {
       } else if (mode === 'fill-explanation') {
         // 补解析：所有题型、所有缺解析的题（与答案是否存在无关）。
         targets = collectBankRows().filter(row => !String(row.question && row.question.explanation || '').trim());
+      } else if (mode === 'classify') {
+        // AI 归类：只处理落在「待归类」槽位的题目。
+        targets = collectBankRows().filter(row => row.type === QUESTION_BANK_UNSURE);
       } else {
         const rows = collectBankRows();
         targets = mode === 'fill-missing' ? rows.filter(row => !row.hasAnswer) : rows;
@@ -12011,6 +12289,7 @@ Typr["U"] = {
       if (!targets.length) {
         const emptyMsg = mode === 'fill-missing' ? '当前题库没有缺少答案的题目'
           : mode === 'fill-explanation' ? '当前筛选范围内的题目都已有解析'
+          : mode === 'classify' ? '当前没有待归类的题目'
           : '当前筛选条件下没有可处理的题目';
         showStatus(els, emptyMsg, 'warn');
         return;
@@ -12039,7 +12318,23 @@ Typr["U"] = {
         while (!bankAiRun.stopped && cursor < targets.length) {
           const row = targets[cursor++];
           try {
-            if (mode === 'fill-explanation') {
+            if (mode === 'classify') {
+              // 归类：AI 同时给出题型与答案，成功后把题目移出「待归类」。
+              const result = await xxtAiClassifyQuestion(row.question);
+              if (bankAiRun.stopped) { bankAiRun.skipped++; break; }
+              if (!result.type || result.type === QUESTION_BANK_UNSURE) {
+                bankAiRun.skipped++;
+              } else {
+                pendingWrites.push({
+                  type: row.type, index: row.index,
+                  reclassifyTo: result.type,
+                  answer: result.answer,
+                  confidence: result.confidence,
+                  reason: result.reason
+                });
+                bankAiRun.changed++;
+              }
+            } else if (mode === 'fill-explanation') {
               // 只补解析：不动答案，避免覆盖用户已有的正确答案。
               const result = await xxtAiExplainQuestion(row.question, row.type);
               if (bankAiRun.stopped) { bankAiRun.skipped++; break; }
@@ -12398,7 +12693,7 @@ Typr["U"] = {
       const count = bankQuestionCount(bank);
       if (!count) { showStatus(els, '当前题库已经为空', 'warn'); return; }
       if (!confirm(`确定清空“${bank.name}”中的 ${count} 道题吗？题库名称会保留。`)) return;
-      bank.results = Object.fromEntries(QUESTION_BANK_TYPES.map(type => [type, []]));
+      bank.results = Object.fromEntries(QUESTION_BANK_SLOTS.map(type => [type, []]));
       bank.typeOrder = []; bank.updatedAt = new Date().toISOString();
       bankSelectedKeys.clear();
       try { saveQuestionBankState(state); refreshBankModal(); showStatus(els, `已清空“${bank.name}”`, 'ok'); }
@@ -12457,13 +12752,29 @@ Typr["U"] = {
         if (bankStatusFilter) bankStatusFilter.value = '';
         refreshBankModal(true);
         const kindLabel = { json: 'JSON', txt: 'TXT', md: 'Markdown', docx: 'Word', pdf: 'PDF' }[parsed.kind] || '文件';
+        // 识别报告：明确告诉用户识别到了什么、有多少需要复核。
+        const parts = [`${created.length} 个题库`, `${importCount} 道题`];
+        if (parsed.breakdown) {
+          const typeText = QUESTION_BANK_SLOTS
+            .filter(type => parsed.breakdown[type])
+            .map(type => `${QUESTION_BANK_TYPE_LABELS[type] || type} ${parsed.breakdown[type]}`)
+            .join('、');
+          if (typeText) parts.push(`题型识别：${typeText}`);
+        }
+        if (parsed.withAnswer != null) parts.push(`带答案 ${parsed.withAnswer} 题`);
+        if (parsed.withExplanation) parts.push(`带解析 ${parsed.withExplanation} 题`);
+        const reportText = parts.join(' · ');
+
         if (bankAiProgress) {
           bankAiProgress.hidden = false;
-          bankAiProgress.textContent = `导入完成：${kindLabel} · ${created.length} 个题库 · ${importCount} 道题`;
+          bankAiProgress.textContent = `导入完成（${kindLabel}）：${reportText}` +
+            (parsed.unsureCount ? `
+有 ${parsed.unsureCount} 道题题型无法确定，已归入「待归类」；可用 AI 审核自动归类。` : '');
         }
-        showStatus(els, `从 ${kindLabel} 导入成功：${created.length} 个题库，共 ${importCount} 道题` +
-          (created.length && bankQuestionCount(created[0]) && parsed.kind !== 'json'
-            ? '；已自动按题号/选项/答案识别，建议抽查几道后再导出' : ''), 'ok');
+        const unsureHint = parsed.unsureCount
+          ? `；其中 ${parsed.unsureCount} 道题题型无法确定，已放入「待归类」，建议点 AI 审核归类`
+          : '';
+        showStatus(els, `从 ${kindLabel} 导入成功：${reportText}${unsureHint}`, parsed.unsureCount ? 'warn' : 'ok');
       } catch (error) {
         if (bankAiProgress) {
           bankAiProgress.hidden = false;
@@ -12509,6 +12820,7 @@ Typr["U"] = {
       }
       if (action === 'fill-missing') runBankAiBatch('fill-missing');
       else if (action === 'fill-explanation') runBankAiBatch('fill-explanation');
+      else if (action === 'classify') runBankAiBatch('classify');
       else if (action === 'review-all') runBankAiBatch('review-all');
       else if (action === 'fix-selected') runBankAiBatch('fix-selected');
     });
@@ -13056,7 +13368,7 @@ Typr["U"] = {
     function saveEditorChanges() {
       if (!editorDraft) return;
       // 从仍存在的卡片重建结果，删除整题后不会把隐藏的旧题再次保存。
-      const nextResults = Object.fromEntries(QUESTION_BANK_TYPES.map(type => [type, []]));
+      const nextResults = Object.fromEntries(QUESTION_BANK_SLOTS.map(type => [type, []]));
       const nextSelectedKeys = new Set();
       let selectedCardCount = 0;
       editorList.querySelectorAll('.xxt-editor-card').forEach(card => {
