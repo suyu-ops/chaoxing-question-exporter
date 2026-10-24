@@ -2,7 +2,7 @@
 // @name         学习通-随堂测验/章节测试/作业/考试题目一键提取导出pdf/word/txt/markdown格式文档
 // @namespace    https://tiku888.top/
 // @license      GPL-3.0
-// @version      1.7.23
+// @version      1.9.1
 // @run-at       document-start
 // @description  一键提取学习通作业题目，支持富文本（图文混排）及 Word/PDF/TXT/MD 四种格式导出、按课程任务点自动逐个提取章节测验、题目勾选后按范围导出，答案/错题收集，独立题库区（新建/存取/编辑/手动添加/导入/四种格式导出/题库对比），暗色模式，快捷键，iframe 提取
 // @author       suyu
@@ -20,6 +20,9 @@
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
 // @connect      cdn.ocsjs.com
+// @connect      cdn.jsdelivr.net
+// @connect      unpkg.com
+// @connect      *
 // ==/UserScript==
 
 (function () {
@@ -3604,6 +3607,77 @@ Typr["U"] = {
 #xxt-bank-modal .xxt-bank-compare { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding-top:10px; border-top:1px solid var(--xxt-border); }
 #xxt-bank-modal .xxt-bank-compare-status { width:100%; color:var(--xxt-text-soft); font-size:11px; white-space:pre-wrap; }
 
+/* 题库区：AI 校对面板 */
+#xxt-bank-modal .xxt-bank-ai { margin:0 0 10px; border:1px solid rgba(124,92,240,.28); border-radius:12px; background:linear-gradient(135deg, rgba(124,92,240,.08), rgba(59,130,246,.05)); padding:9px 10px; }
+#xxt-bank-modal .xxt-bank-ai-head { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:8px; }
+#xxt-bank-modal .xxt-bank-ai-title { font-size:12px; font-weight:800; color:var(--xxt-accent-strong); }
+#xxt-bank-modal .xxt-bank-ai-state { font-size:11px; color:var(--xxt-text-soft); }
+#xxt-bank-modal .xxt-bank-ai-actions { display:flex; gap:6px; flex-wrap:wrap; }
+#xxt-bank-modal .xxt-bank-ai-actions button { border:1px solid var(--xxt-accent); border-radius:8px; background:#fff; color:var(--xxt-accent-strong); padding:6px 9px; cursor:pointer; font:700 11px/1.3 inherit; }
+#xxt-bank-modal .xxt-bank-ai-actions button:hover:not(:disabled) { background:var(--xxt-grad); color:#fff; border-color:transparent; }
+#xxt-bank-modal .xxt-bank-ai-actions button:disabled { opacity:.45; cursor:not-allowed; }
+#xxt-bank-modal .xxt-bank-ai-progress { margin-top:8px; font-size:11px; color:var(--xxt-text-soft); line-height:1.5; white-space:pre-wrap; }
+#xxt-bank-modal .xxt-bank-ai-bar { margin-top:6px; height:5px; border-radius:3px; background:rgba(124,92,240,.15); overflow:hidden; }
+#xxt-bank-modal .xxt-bank-ai-bar i { display:block; height:100%; width:0%; border-radius:3px; background:var(--xxt-grad); transition:width .25s ease; }
+#xxt-bank-modal .xxt-bank-ai-banner { margin:0 0 10px; padding:8px 10px; border-radius:10px; border:1px dashed rgba(124,92,240,.4); color:var(--xxt-text-soft); font-size:11px; line-height:1.55; }
+#xxt-bank-modal .xxt-bank-ai-banner button { margin-left:6px; border:1px solid var(--xxt-accent); background:#fff; color:var(--xxt-accent-strong); border-radius:7px; padding:3px 8px; cursor:pointer; font:700 11px inherit; }
+
+/* 题库区：勾选与筛选 */
+#xxt-bank-modal .xxt-bank-filters { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:9px; }
+#xxt-bank-modal .xxt-bank-filters select { flex:0 0 auto; min-width:120px; padding:6px 8px; font-size:11px; }
+#xxt-bank-modal .xxt-bank-filters button { border:1px solid var(--xxt-border); border-radius:8px; background:#fff; color:var(--xxt-text-soft); padding:6px 9px; cursor:pointer; font:700 11px/1.3 inherit; }
+#xxt-bank-modal .xxt-bank-filters button:hover { border-color:var(--xxt-accent); color:var(--xxt-accent-strong); }
+#xxt-bank-modal .xxt-bank-filters .xxt-bank-filter-count { margin-left:auto; color:var(--xxt-text-soft); font-size:11px; font-weight:700; }
+#xxt-bank-modal .xxt-bank-card { position:relative; }
+#xxt-bank-modal .xxt-bank-card.xxt-bank-card-selected { border-color:var(--xxt-accent); box-shadow:0 0 0 2px rgba(124,92,240,.14); }
+/* 复选框必须显式绘制，且**每一条都要 !important**：
+   学习通等宿主页面常注入 input[type=checkbox]{appearance:none;opacity:0;width:0}，
+   带 !important 的宿主规则会压过普通声明，原生控件就变成「透明看不见」。
+   这里全部属性都用 !important，并用 appearance:none 自绘边框与对勾。 */
+#xxt-bank-modal .xxt-bank-card-head .xxt-bank-check,
+#xxt-editor-modal .xxt-editor-select {
+  -webkit-appearance: none !important; -moz-appearance: none !important; appearance: none !important;
+  box-sizing: border-box !important;
+  width: 17px !important; height: 17px !important;
+  min-width: 17px !important; max-width: 17px !important;
+  min-height: 17px !important; max-height: 17px !important;
+  margin: 0 2px 0 0 !important; padding: 0 !important;
+  flex: 0 0 auto !important;
+  border: 1.5px solid #9ca3af !important; border-radius: 4px !important;
+  background-color: #fff !important;
+  background-repeat: no-repeat !important; background-position: center !important;
+  background-size: 11px 11px !important;
+  cursor: pointer !important; position: relative !important;
+  opacity: 1 !important; visibility: visible !important; display: inline-block !important;
+  box-shadow: none !important; outline: none !important;
+  transform: none !important; clip: auto !important; clip-path: none !important;
+}
+#xxt-bank-modal .xxt-bank-card-head .xxt-bank-check:hover,
+#xxt-editor-modal .xxt-editor-select:hover { border-color: var(--xxt-accent) !important; }
+#xxt-bank-modal .xxt-bank-card-head .xxt-bank-check:checked,
+#xxt-editor-modal .xxt-editor-select:checked,
+#xxt-bank-modal .xxt-bank-card-head .xxt-bank-check.xxt-check-on,
+#xxt-editor-modal .xxt-editor-select.xxt-check-on {
+  border-color: var(--xxt-accent) !important;
+  background-color: var(--xxt-accent) !important;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round' d='M3.2 8.6l3.1 3.1 6.5-6.5'/%3E%3C/svg%3E") !important;
+}
+#xxt-bank-modal .xxt-bank-card-head .xxt-bank-check:focus-visible,
+#xxt-editor-modal .xxt-editor-select:focus-visible { box-shadow: 0 0 0 3px rgba(124,92,240,.28) !important; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-card-head .xxt-bank-check,
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-select { background-color: #181825 !important; border-color: #585b70 !important; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-card-head .xxt-bank-check:checked,
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-select:checked,
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-card-head .xxt-bank-check.xxt-check-on,
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-select.xxt-check-on { background-color: var(--xxt-accent) !important; border-color: var(--xxt-accent) !important; }
+#xxt-bank-modal .xxt-bank-card-head-left { display:flex; align-items:center; gap:6px; min-width:0; }
+#xxt-bank-modal .xxt-bank-badge { display:inline-flex; align-items:center; padding:1px 6px; border-radius:999px; font-size:10px; font-weight:800; }
+#xxt-bank-modal .xxt-bank-badge.xxt-bank-badge-missing { background:rgba(245,158,11,.16); color:#b45309; }
+#xxt-bank-modal .xxt-bank-badge.xxt-bank-badge-ai { background:rgba(16,185,129,.16); color:#047857; }
+#xxt-bank-modal .xxt-bank-badge.xxt-bank-badge-low { background:rgba(239,68,68,.14); color:#b91c1c; }
+#xxt-bank-modal .xxt-bank-explanation { margin-top:8px; padding:7px 9px; border-radius:9px; background:rgba(59,130,246,.07); color:var(--xxt-text-soft); font-size:11px; line-height:1.6; overflow-wrap:anywhere; }
+#xxt-bank-modal .xxt-bank-card-selected .xxt-bank-card-actions button[data-bank-action="ai"] { border-color:var(--xxt-accent); color:var(--xxt-accent-strong); }
+
 /* ===== 存入题库引导弹窗 ===== */
 #xxt-save-bank-modal {
   position:fixed; inset:0; z-index:100005;
@@ -3712,12 +3786,30 @@ Typr["U"] = {
 #xxt-editor-modal .xxt-editor-type { margin:14px 0 8px; color:var(--xxt-accent-strong); font-size:14px; font-weight:800; }
 #xxt-editor-modal .xxt-editor-card { background:var(--xxt-surface-solid); border:1px solid var(--xxt-border); border-radius:15px; padding:14px; margin-bottom:12px; }
 #xxt-editor-modal .xxt-editor-card.xxt-editor-unselected { opacity:.58; }
-#xxt-editor-modal .xxt-editor-select { width:17px; height:17px; accent-color:var(--xxt-accent); cursor:pointer; flex:0 0 auto; }
 #xxt-editor-modal .xxt-editor-label { display:block; color:var(--xxt-text-soft); font-size:12px; font-weight:700; margin:0 0 5px; }
 #xxt-editor-modal textarea, #xxt-editor-modal input[type="text"] { box-sizing:border-box; width:100%; border:1px solid var(--xxt-border); border-radius:9px; padding:8px 10px; background:#fff; color:var(--xxt-text); font:13px/1.55 inherit; outline:0; resize:vertical; }
 #xxt-editor-modal textarea:focus, #xxt-editor-modal input[type="text"]:focus { border-color:var(--xxt-accent); box-shadow:0 0 0 3px rgba(124,92,240,.14); }
 #xxt-editor-modal .xxt-editor-stem { min-height:58px; }
 #xxt-editor-modal .xxt-editor-answer { min-height:42px; }
+#xxt-editor-modal .xxt-editor-explanation { min-height:46px; background:rgba(59,130,246,.04); }
+
+/* 在线编辑器：AI 补全/纯正 */
+#xxt-editor-modal .xxt-editor-ai-bar { display:flex; flex-wrap:wrap; gap:7px; align-items:center; margin:0 0 12px; padding:9px 12px; border:1px solid rgba(124,92,240,.28); border-radius:12px; background:linear-gradient(135deg,rgba(124,92,240,.08),rgba(59,130,246,.05)); }
+#xxt-editor-modal .xxt-editor-ai-bar strong { font-size:11.5px; font-weight:800; color:var(--xxt-accent-strong); }
+#xxt-editor-modal .xxt-editor-ai-bar button { border:1px solid var(--xxt-accent); border-radius:8px; padding:6px 9px; background:#fff; color:var(--xxt-accent-strong); cursor:pointer; font:700 11px/1.3 inherit; }
+#xxt-editor-modal .xxt-editor-ai-bar button:hover:not(:disabled) { background:var(--xxt-grad); color:#fff; border-color:transparent; }
+#xxt-editor-modal .xxt-editor-ai-bar button:disabled { opacity:.45; cursor:not-allowed; }
+#xxt-editor-modal .xxt-editor-ai-status { margin-left:auto; color:var(--xxt-text-soft); font-size:11px; font-weight:700; white-space:pre-wrap; }
+#xxt-editor-modal .xxt-editor-ai-one { border:1px solid rgba(124,92,240,.45) !important; background:rgba(124,92,240,.07) !important; color:var(--xxt-accent-strong) !important; border-radius:7px; padding:3px 8px !important; cursor:pointer; font:700 11px/1.3 inherit; }
+#xxt-editor-modal .xxt-editor-ai-one:hover:not(:disabled) { background:var(--xxt-grad) !important; color:#fff !important; }
+#xxt-editor-modal .xxt-editor-ai-one:disabled { opacity:.45; cursor:not-allowed; }
+#xxt-editor-modal .xxt-editor-ai-tip { margin:7px 0 0; padding:7px 9px; border-radius:8px; background:rgba(16,185,129,.08); border:1px solid rgba(16,185,129,.26); color:#047857; font-size:11px; line-height:1.55; overflow-wrap:anywhere; }
+#xxt-editor-modal .xxt-editor-ai-tip.is-warn { background:rgba(245,158,11,.10); border-color:rgba(245,158,11,.3); color:#b45309; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-bar { border-color:rgba(167,139,250,.45); background:rgba(124,58,237,.14); }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-bar button,
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-one { background:#181825 !important; color:#c4b5fd !important; border-color:#a78bfa !important; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-tip { background:rgba(16,185,129,.14); border-color:rgba(16,185,129,.34); color:#6ee7b7; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-tip.is-warn { background:rgba(245,158,11,.14); border-color:rgba(245,158,11,.34); color:#fbbf24; }
 #xxt-editor-modal .xxt-editor-option { display:grid; grid-template-columns:32px 1fr 30px; gap:7px; align-items:start; margin-top:7px; }
 #xxt-editor-modal .xxt-editor-letter { padding:8px 0; font-weight:800; color:var(--xxt-accent); text-align:center; }
 #xxt-editor-modal .xxt-editor-remove { border:0; background:transparent; color:#9ca3af; cursor:pointer; font-size:16px; padding:7px 0; }
@@ -3948,6 +4040,14 @@ Typr["U"] = {
 [data-xxt-theme="dark"] #xxt-settings-modal .xxt-setting-row {
   background: #181825; border-color: #313244; color: #f5f7fb;
 }
+#xxt-settings-modal .xxt-ai-open-btn {
+  border: 1px solid var(--xxt-accent); border-radius: 9px; padding: 7px 12px;
+  background: #fff; color: var(--xxt-accent-strong); cursor: pointer;
+  font: 700 12px/1.3 inherit;
+}
+#xxt-settings-modal .xxt-ai-open-btn:hover { background: var(--xxt-grad); color: #fff; border-color: transparent; }
+#xxt-settings-modal .xxt-setting-value { color: var(--xxt-text-soft); font-size: 11px; font-weight: 600; }
+[data-xxt-theme="dark"] #xxt-settings-modal .xxt-ai-open-btn { background: #313244; color: #c4b5fd; border-color: #585b70; }
 [data-xxt-theme="dark"] #xxt-settings-modal .xxt-theme-btn {
   background: #313244; color: #a6adc8; border-color: #45475a;
 }
@@ -4050,8 +4150,34 @@ Typr["U"] = {
     rememberPanelPosition: true, // 记住所有窗口位置，默认开启
     panelPosition: null,        // 记住的面板位置 { left, top }
     floatingPositions: {},      // 各浮窗位置 { panel: { left, top }, ... }
-    bankThreshold: 90           // 题库对比阈值（50-100）
+    bankThreshold: 90,          // 题库对比阈值（50-100）
+    batchPacing: 'safe',        // 批量提取节奏档位：safe | normal | fast
+    // OpenAI 兼容提供商配置：题库区的“AI 补答案 / 纠错审核”使用这里的信息。
+    // apiKey 只保存在本机 localStorage，不会随题库导出。
+    ai: {
+      baseUrl: '',              // 例如 https://api.openai.com/v1
+      apiKey: '',
+      model: '',
+      models: [],               // “一键获取模型”缓存
+      concurrency: 2,           // 批量请求并发数（1-6）
+      lastTestAt: '',
+      lastTestOk: null
+    }
   };
+
+  // 逐字段容错合并，避免旧版本设置里缺 ai / 字段类型异常导致整份设置失效。
+  function normalizeAiSettings(saved) {
+    const source = saved && typeof saved === 'object' ? saved : {};
+    return {
+      baseUrl: typeof source.baseUrl === 'string' ? source.baseUrl.trim() : '',
+      apiKey: typeof source.apiKey === 'string' ? source.apiKey.trim() : '',
+      model: typeof source.model === 'string' ? source.model.trim() : '',
+      models: Array.isArray(source.models) ? source.models.filter(item => typeof item === 'string' && item.trim()).slice(0, 500) : [],
+      concurrency: Math.max(1, Math.min(6, Number(source.concurrency) || 2)),
+      lastTestAt: typeof source.lastTestAt === 'string' ? source.lastTestAt : '',
+      lastTestOk: typeof source.lastTestOk === 'boolean' ? source.lastTestOk : null
+    };
+  }
 
   function loadSettings() {
     try {
@@ -4068,7 +4194,9 @@ Typr["U"] = {
           panelPosition: saved.panelPosition || null,
           floatingPositions: saved.floatingPositions && typeof saved.floatingPositions === 'object' ? saved.floatingPositions : {},
           allUiDragInitialized: true,
-          bankThreshold: Math.max(50, Math.min(100, Number(saved.bankThreshold) || DEFAULT_SETTINGS.bankThreshold))
+          bankThreshold: Math.max(50, Math.min(100, Number(saved.bankThreshold) || DEFAULT_SETTINGS.bankThreshold)),
+          batchPacing: ['safe', 'normal', 'fast'].includes(saved.batchPacing) ? saved.batchPacing : DEFAULT_SETTINGS.batchPacing,
+          ai: normalizeAiSettings(saved.ai)
         };
       }
     } catch (e) { /* ignore */ }
@@ -4081,14 +4209,54 @@ Typr["U"] = {
       panelPosition: null,
       floatingPositions: {},
       allUiDragInitialized: true,
-      bankThreshold: DEFAULT_SETTINGS.bankThreshold
+      bankThreshold: DEFAULT_SETTINGS.bankThreshold,
+      batchPacing: DEFAULT_SETTINGS.batchPacing,
+      ai: normalizeAiSettings(null)
     };
   }
 
+  // 设置写入失败必须能被感知。历史记录里存了完整题目与全文，很容易把
+  // localStorage（通常 5MB）撑满；一旦配额耗尽，旧实现会静默失败，
+  // 表现为“设置里点了保存，重新打开却发现没生效”。
+  let settingsSaveError = '';
   function saveSettings(settings) {
+    settingsSaveError = '';
+    const serialized = JSON.stringify(settings);
     try {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    } catch (e) { /* ignore */ }
+      localStorage.setItem(SETTINGS_KEY, serialized);
+      return true;
+    } catch (e) {
+      // 配额不足：先尝试清理历史记录腾出空间，再重试一次。
+      try {
+        localStorage.removeItem('xxt_history');
+        localStorage.setItem(SETTINGS_KEY, serialized);
+        settingsSaveError = '';
+        try { showGlobalToast('存储空间不足，已清理下载历史以保存设置'); } catch (err) {}
+        return true;
+      } catch (e2) {
+        settingsSaveError = '设置保存失败：浏览器存储空间不足或已被禁用，请清理站点数据后重试';
+        try { showGlobalToast(settingsSaveError, 'err'); } catch (err) {}
+        return false;
+      }
+    }
+  }
+
+  // 读取当前设置占用，供设置弹窗展示（排查配额问题时很有用）。
+  function describeSettingsStorage() {
+    try {
+      const used = localStorage.getItem(SETTINGS_KEY);
+      const history = localStorage.getItem('xxt_history') || '';
+      const bytes = value => (typeof TextEncoder === 'function'
+        ? new TextEncoder().encode(value).length
+        : new Blob([value]).size);
+      return {
+        settingsBytes: used ? bytes(used) : 0,
+        historyBytes: history ? bytes(history) : 0,
+        error: settingsSaveError
+      };
+    } catch (e) {
+      return { settingsBytes: 0, historyBytes: 0, error: settingsSaveError };
+    }
   }
 
   // 保存导出配置（格式、附加答案、打乱、题库导入）
@@ -4097,7 +4265,8 @@ Typr["U"] = {
       format: getFormat(els),
       withAnswers: els.chkAnswers ? els.chkAnswers.checked : false,
       shuffle: els.chkShuffle ? els.chkShuffle.checked : false,
-      bankImport: els.chkBankImport ? els.chkBankImport.checked : false
+      bankImport: els.chkBankImport ? els.chkBankImport.checked : false,
+      withExplanation: els.chkExplanation ? els.chkExplanation.checked : false
     };
     saveSettings(currentSettings);
   }
@@ -4220,6 +4389,10 @@ Typr["U"] = {
   // ==================== 历史记录 ====================
   const HISTORY_KEY = 'xxt_history';
   const MAX_HISTORY = 10;
+  // 历史记录只保留元信息 + 精简题目快照。旧实现把完整 results 和整篇
+  // outputText 都塞进 localStorage，300 题 × 10 条就能到 3MB 以上，
+  // 直接挤爆配额，连带设置（AI 配置等）也存不进去。
+  const HISTORY_MAX_BYTES = 512 * 1024;
 
   function loadHistory() {
     try {
@@ -4229,9 +4402,51 @@ Typr["U"] = {
   }
 
   function saveHistory(history) {
-    try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-    } catch (e) { /* ignore */ }
+    // 逐级降级：先尝试完整写入；超限则裁掉 outputText；再超限才丢最旧记录。
+    let list = history.slice();
+    for (let attempt = 0; attempt < 12 && list.length; attempt++) {
+      const serialized = JSON.stringify(list);
+      try {
+        localStorage.setItem(HISTORY_KEY, serialized);
+        return true;
+      } catch (e) {
+        if (attempt < 4) {
+          // 先丢掉明文全文（可重新导出，价值最低）
+          list = list.map(item => ({ ...item, outputText: '' }));
+          continue;
+        }
+        // 仍然超限就丢最旧的一条
+        list = list.slice(0, Math.max(1, list.length - 1));
+      }
+    }
+    try { localStorage.removeItem(HISTORY_KEY); } catch (e) {}
+    return false;
+  }
+
+  // 把题目压成历史快照：只留导出必需的字段，去掉富文本副本与图片 data。
+  function compactQuestionForHistory(question) {
+    if (!question || typeof question !== 'object') return question;
+    const output = {
+      stem: question.stem,
+      stemContent: question.stemContent,
+      options: question.options,
+      correctAnswer: question.correctAnswer,
+      correctAnswerContent: question.correctAnswerContent,
+      myAnswer: question.myAnswer,
+      isWrong: !!question.isWrong
+    };
+    if (question.explanation) output.explanation = question.explanation;
+    if (question.answerSource) output.answerSource = question.answerSource;
+    return output;
+  }
+
+  function compactResultsForHistory(results) {
+    const out = {};
+    Object.entries(results || {}).forEach(([type, list]) => {
+      if (!Array.isArray(list)) return;
+      out[type] = list.map(compactQuestionForHistory);
+    });
+    return out;
   }
 
   function addToHistory(extractedData, fmt, withAnswers, withWrong, shuffle, bankImport, outputText) {
@@ -4251,11 +4466,12 @@ Typr["U"] = {
       bankImport: bankImport || false,
       totalQuestions: totalQ,
       typeOrder: extractedData.typeOrder,
-      results: extractedData.results,
+      results: compactResultsForHistory(extractedData.results),
       wrongCount: extractedData.wrongCount,
       hasMyAnswer: extractedData.hasMyAnswer,
       hasCorrectAnswer: extractedData.hasCorrectAnswer || false,
-      outputText: outputText || ''
+      // 全文仅在体积可控时保留（TXT/MD 一般较小；Word/PDF 传空字符串）。
+      outputText: (typeof outputText === 'string' && outputText.length <= 60000) ? outputText : ''
     };
     // 去重：相同标题+相同格式的旧记录替换
     const filtered = history.filter(h => !(h.title === entry.title && h.format === entry.format));
@@ -4428,10 +4644,27 @@ Typr["U"] = {
     const correctAnswerContent = stripAnswerLabel(normalizeBankRichContent(rawAnswer));
     const answer = (richTextOnly(correctAnswerContent) || String(rawAnswer || '').trim())
       .replace(/^\s*(?:答案|正确答案|answer)\s*[：:：]?\s*/i, '').trim();
+    // 解析/导入时可能带上“解析”字段，保留它方便后续 AI 审核与人工复习。
+    const rawExplanation = question.explanation ?? question.analysis ?? question.parse ?? question.analyze ?? '';
+    const explanation = String(rawExplanation == null ? '' : rawExplanation).trim().substring(0, 2000);
     // 不把某一次作答/错题状态带进可复用题库，避免题库载入后误显示旧错题。
+    // 但 AI 标注（来源/置信度/更新时间）属于题目自身属性，必须保留，
+    // 否则保存一次后 AI 标记就丢失，无法再用“低置信度”筛。
+    const answerSource = question.answerSource === 'ai' ? 'ai' : '';
+    const aiConfidence = Number(question.aiConfidence);
     return {
       stem, stemContent, options,
       correctAnswer: answer, correctAnswerContent,
+      explanation,
+      ...(answerSource ? { answerSource } : {}),
+      ...(answerSource && Number.isFinite(aiConfidence) ? { aiConfidence: Math.max(0, Math.min(1, aiConfidence)) } : {}),
+      ...(answerSource && question.aiUpdatedAt ? { aiUpdatedAt: String(question.aiUpdatedAt).substring(0, 40) } : {}),
+      // 解析的来源标注同样需要保留，否则“补解析”结果保存一次就丢标记。
+      ...(question.explanationSource === 'ai' ? { explanationSource: 'ai' } : {}),
+      ...(question.explanationSource === 'ai' && Number.isFinite(Number(question.explanationConfidence))
+        ? { explanationConfidence: Math.max(0, Math.min(1, Number(question.explanationConfidence))) } : {}),
+      ...(question.explanationSource === 'ai' && question.explanationUpdatedAt
+        ? { explanationUpdatedAt: String(question.explanationUpdatedAt).substring(0, 40) } : {}),
       myAnswer: '', isWrong: false
     };
   }
@@ -4586,6 +4819,1004 @@ Typr["U"] = {
     return refreshExtractedOutputCache(data);
   }
 
+  // ==================== 通用小工具 ====================
+  // escapeHtml 在 createPanel 内是局部函数；这里提供全局版本给题库/导入导出共用。
+  function xxtEscapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function xxtEscapeAttr(value) {
+    return xxtEscapeHtml(value).replace(/`/g, '&#96;').replace(/=/g, '&#61;');
+  }
+
+  const XXT_TYPE_LABELS = { '单选': '单选题', '多选': '多选题', '填空': '填空题', '判断': '判断题', '简答': '简答题' };
+
+  function xxtNormalizeType(value) {
+    const text = String(value || '');
+    if (!text) return '';
+    if (/多选|多项选择|不定项|multiple/i.test(text)) return '多选';
+    if (/判断|正误|是非|true.?false/i.test(text)) return '判断';
+    if (/填空|fill.?blank/i.test(text)) return '填空';
+    if (/简答|问答|论述|名词解释|essay|subjective/i.test(text)) return '简答';
+    if (/单选|单项选择|选择|single.?choice/i.test(text)) return '单选';
+    return '';
+  }
+
+  // 动态加载外部脚本（PDF 解析库按需加载，避免每次开页面都下载）。
+  const xxtLoadedScripts = new Map();
+  function xxtLoadScript(url) {
+    if (xxtLoadedScripts.has(url)) return xxtLoadedScripts.get(url);
+    const pending = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = url;
+      script.async = true;
+      script.onload = () => resolve(true);
+      script.onerror = () => reject(new Error('脚本加载失败：' + url));
+      (document.head || document.documentElement).appendChild(script);
+    });
+    xxtLoadedScripts.set(url, pending);
+    return pending;
+  }
+
+  // ==================== 题库导入：纯文本 / Markdown 解析 ====================
+  // 目标是把“从别处复制来的题目文本”尽量还原成结构化题目。宁可多留原文，
+  // 也不要把识别不出的行当成新题目，避免生成大量空题。
+  function xxtParseQuestionsFromText(rawText) {
+    const text = String(rawText || '')
+      .replace(/\r\n?/g, '\n')
+      .replace(/[\u00a0\u3000]/g, ' ')
+      .replace(/^\s*\uFEFF/, '');
+    const lines = text.split('\n');
+    const collected = [];
+    let currentType = '';
+    let current = null;
+
+    const sectionRe = /^[\s#*>*_\-]*[一二三四五六七八九十]+\s*[、.．)]\s*(.{0,24}?题)\s*(?:[（(]\s*共\s*\d+\s*题[）)])?\s*[:：]?$/;
+    const typeTagRe = /[【\[（(]\s*(单项选择|多项选择|不定项选择|单选|多选|判断|填空|简答|问答|论述|名词解释)\s*题?\s*[】\]）)]/;
+    const numberRe = /^[\s#*>*_\-]*(\d{1,4})\s*[、.．)]\s*(.*)$/;
+    const answerRe = /^[\s*_>*\-]*(?:参考答案|正确答案|标准答案|答案)\s*[：:]\s*[*_\s]*(.*)$/;
+    const analysisRe = /^[\s*_>*\-]*(?:答案解析|试题解析|题目解析|解析|分析)\s*[：:]\s*[*_\s]*(.*)$/;
+    const optionLetter = /^[\s*_\-]*[（(]?([A-H])[）)]?\s*[、.．:：,，)\]]\s*(.*)$/;
+    const optionSpace = /^[\s*_\-]*([A-H])\s+(\S.*)$/;
+
+    const flush = () => {
+      if (!current) return;
+      if (String(current.stem || '').trim()) collected.push(current);
+      current = null;
+    };
+
+    for (const rawLine of lines) {
+      const line = rawLine.replace(/\s+$/, '');
+      if (!line.trim()) continue;
+
+      // 1) 大题标题：一、单项选择题（共10题）
+      const section = line.match(sectionRe);
+      if (section) {
+        const detected = xxtNormalizeType(section[1]);
+        if (detected) { flush(); currentType = detected; continue; }
+      }
+
+      // 2) 答案解析 / 答案
+      const answerMatch = line.match(answerRe);
+      if (answerMatch && current) { current.answer = answerMatch[1].trim(); continue; }
+      const analysisMatch = line.match(analysisRe);
+      if (analysisMatch && current) { current.analysis = analysisMatch[1].trim(); continue; }
+
+      // 3) 题型标签：可以在题号前，也可以跟在题号后
+      let working = line;
+      let inlineType = '';
+      const tagMatch = working.match(typeTagRe);
+      if (tagMatch) {
+        const detected = xxtNormalizeType(tagMatch[1]);
+        // 标签出现在行首（或题号之后）才当作题型，避免题干中间出现“选择题”被误判
+        const tagIndex = working.indexOf(tagMatch[0]);
+        if (detected && tagIndex <= 12) {
+          inlineType = detected;
+          working = (working.slice(0, tagIndex) + working.slice(tagIndex + tagMatch[0].length)).trim();
+        }
+      }
+
+      // 4) 选项：只接受“当前期望的字母”，避免把题干里的 A/B 误判成选项
+      const expectedLetter = current ? String.fromCharCode(65 + (current.options || []).length) : 'A';
+      let optionText = '';
+      let optionDetected = false;
+      const optionMatch = working.match(optionLetter);
+      if (optionMatch && optionMatch[1].toUpperCase() === expectedLetter) {
+        optionText = optionMatch[2].trim();
+        optionDetected = true;
+      } else if (current) {
+        const spaceMatch = working.match(optionSpace);
+        if (spaceMatch && spaceMatch[1].toUpperCase() === expectedLetter) {
+          optionText = spaceMatch[2].trim();
+          optionDetected = true;
+        }
+      }
+      if (optionDetected && current) {
+        if (!Array.isArray(current.options)) current.options = [];
+        current.options.push(optionText);
+        continue;
+      }
+
+      // 5) 新题目：题号开头 + 可选题型标签
+      const numbered = working.match(numberRe);
+      if (numbered) {
+        flush();
+        current = {
+          number: Number(numbered[1]),
+          stem: numbered[2].trim(),
+          options: [], answer: '', analysis: '',
+          type: inlineType || currentType
+        };
+        continue;
+      }
+
+      // 6) 只有题型标签没有题号，也当作新题目开始
+      if (inlineType) {
+        flush();
+        current = { number: 0, stem: working.trim(), options: [], answer: '', analysis: '', type: inlineType };
+        continue;
+      }
+
+      // 7) 其余情况：追加到当前题干（多行题干）
+      if (current) {
+        current.stem = `${current.stem} ${working.trim()}`.trim();
+      } else {
+        current = { number: 0, stem: working.trim(), options: [], answer: '', analysis: '', type: currentType };
+      }
+    }
+    flush();
+
+    // 按题型分组，并给出最终结构
+    const grouped = Object.fromEntries(QUESTION_BANK_TYPES.map(type => [type, []]));
+    collected.forEach(item => {
+      const options = (item.options || []).map((value, index) => String(value || '').trim()).filter(Boolean);
+      let type = item.type || '';
+      const answer = String(item.answer || '').trim();
+      if (!type) {
+        if (!options.length) {
+          type = /[（(]\s*[）)]/.test(item.stem) || /_{2,}|（\s*）|﹍/.test(item.stem) ? '填空' : '简答';
+        } else if (options.length === 2 && xxtLooksLikeJudgeAnswer(answer, options)) {
+          type = '判断';
+        } else if (/[,，、;；]/.test(answer) || /^[A-H]{2,}$/i.test(answer.replace(/\s/g, ''))) {
+          type = '多选';
+        } else {
+          type = '单选';
+        }
+      }
+      const normalizedAnswer = type === '判断'
+        ? (/^(正确|对|是|√|✓|true|t|yes)$/i.test(answer) ? '对'
+          : /^(错误|错|否|×|✗|false|f|no)$/i.test(answer) ? '错'
+            // 判断题常用“A. 正确 / B. 错误”，把字母换算成对/错。
+            : xxtJudgeAnswerFromLetter(answer, options) || answer)
+        : (/^[A-Ha-h][\s,，、|/]*$/.test(answer) && type !== '填空' ? answer.replace(/\s/g, '').toUpperCase() : answer);
+      grouped[type].push({
+        stem: item.stem,
+        options: options.length ? options : undefined,
+        correctAnswer: normalizedAnswer,
+        explanation: item.analysis || '',
+        typeName: type
+      });
+    });
+    return grouped;
+  }
+
+  // 判断题“A. 正确 / B. 错误”的字母答案换算。
+  function xxtJudgeAnswerFromLetter(answer, options) {
+    const letter = String(answer || '').trim().toUpperCase();
+    if (!/^[A-H]$/.test(letter) || !Array.isArray(options)) return '';
+    const text = String(options[letter.charCodeAt(0) - 65] || '').trim();
+    if (/^(正确|对|是|√|✓|true|t|yes)/i.test(text)) return '对';
+    if (/^(错误|错|否|×|✗|false|f|no)/i.test(text)) return '错';
+    return '';
+  }
+
+  // 是否为“对/错”类题：答案是判断词，或选项内容本身表达对错。
+  function xxtLooksLikeJudgeAnswer(answer, options) {
+    if (/^(正确|错误|对|错|是|否|√|×|✓|✗|true|false|t|f|yes|no)$/i.test(String(answer || '').trim())) return true;
+    return !!xxtJudgeAnswerFromLetter(answer, options);
+  }
+
+  // ==================== 题库导入：DOCX / ZIP 读取 ====================
+  async function xxtUnzip(arrayBuffer) {
+    const bytes = new Uint8Array(arrayBuffer);
+    const view = new DataView(arrayBuffer);
+    let eocd = -1;
+    const floor = Math.max(0, bytes.length - 66000);
+    for (let i = bytes.length - 22; i >= floor; i--) {
+      if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    }
+    if (eocd < 0) throw new Error('不是有效的 DOCX/ZIP 文件');
+    const total = view.getUint16(eocd + 10, true);
+    let offset = view.getUint32(eocd + 16, true);
+    const entries = [];
+    for (let i = 0; i < total; i++) {
+      if (offset + 46 > bytes.length || view.getUint32(offset, true) !== 0x02014b50) break;
+      const method = view.getUint16(offset + 10, true);
+      const compSize = view.getUint32(offset + 20, true);
+      const nameLen = view.getUint16(offset + 28, true);
+      const extraLen = view.getUint16(offset + 30, true);
+      const commentLen = view.getUint16(offset + 32, true);
+      const localOffset = view.getUint32(offset + 42, true);
+      const name = new TextDecoder('utf-8').decode(bytes.subarray(offset + 46, offset + 46 + nameLen));
+      entries.push({ name, method, compSize, localOffset });
+      offset += 46 + nameLen + extraLen + commentLen;
+    }
+    return { bytes, view, entries };
+  }
+
+  async function xxtReadZipEntry(zip, targetName) {
+    const entry = zip.entries.find(item => item.name === targetName);
+    if (!entry) return null;
+    const { bytes, view } = zip;
+    const local = entry.localOffset;
+    if (view.getUint32(local, true) !== 0x04034b50) return null;
+    const nameLen = view.getUint16(local + 26, true);
+    const extraLen = view.getUint16(local + 28, true);
+    const start = local + 30 + nameLen + extraLen;
+    const raw = bytes.subarray(start, start + entry.compSize);
+    if (entry.method === 0) return new TextDecoder('utf-8').decode(raw);
+    if (entry.method === 8) {
+      if (typeof DecompressionStream !== 'function') {
+        throw new Error('当前浏览器不支持解压 DOCX，请使用 Chrome/Edge 最新版');
+      }
+      const stream = new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      const buffer = await new Response(stream).arrayBuffer();
+      return new TextDecoder('utf-8').decode(buffer);
+    }
+    throw new Error('不支持的 DOCX 压缩方式：' + entry.method);
+  }
+
+  function xxtDecodeXmlEntities(value) {
+    return String(value || '')
+      .replace(/&#x([0-9a-fA-F]+);/g, (m, hex) => String.fromCodePoint(parseInt(hex, 16)))
+      .replace(/&#(\d+);/g, (m, dec) => String.fromCodePoint(Number(dec)))
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'").replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
+  }
+
+  function xxtDocxXmlToText(xml) {
+    const paragraphs = [];
+    const paraRe = /<w:p\b[^>]*?(?:\/>|>([\s\S]*?)<\/w:p>)/g;
+    let para;
+    while ((para = paraRe.exec(String(xml || '')))) {
+      const inner = para[1] || '';
+      let text = '';
+      const tokenRe = /<w:t\b[^>]*>([\s\S]*?)<\/w:t>|<w:tab\b[^>]*\/>|<w:br\b[^>]*\/>/g;
+      let token;
+      while ((token = tokenRe.exec(inner))) {
+        if (token[1] != null) text += xxtDecodeXmlEntities(token[1]);
+        else if (/w:tab/.test(token[0])) text += ' ';
+        else text += '\n';
+      }
+      paragraphs.push(text);
+    }
+    return paragraphs.join('\n');
+  }
+
+  async function xxtDocxToText(file) {
+    const zip = await xxtUnzip(await file.arrayBuffer());
+    const xml = await xxtReadZipEntry(zip, 'word/document.xml');
+    if (!xml) throw new Error('DOCX 中未找到正文（word/document.xml），请确认文件未损坏');
+    return xxtDocxXmlToText(xml);
+  }
+
+  // ==================== 题库导入：PDF 文本提取 ====================
+  const XXT_PDFJS_SOURCES = [
+    'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js',
+    'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js'
+  ];
+
+  async function xxtGetPdfJs() {
+    if (window.pdfjsLib) return window.pdfjsLib;
+    let lastError = null;
+    for (const src of XXT_PDFJS_SOURCES) {
+      try {
+        await xxtLoadScript(src);
+        if (window.pdfjsLib) break;
+      } catch (error) { lastError = error; }
+    }
+    const lib = window.pdfjsLib;
+    if (!lib) {
+      throw new Error('PDF 解析组件加载失败' +
+        (lastError ? `（${lastError.message}）` : '') +
+        '；请检查网络，或把 PDF 内容复制成 TXT 后再导入');
+    }
+    try {
+      lib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+    } catch (e) { /* 部分版本没有 GlobalWorkerOptions，忽略 */ }
+    return lib;
+  }
+
+  async function xxtPdfToText(file) {
+    const lib = await xxtGetPdfJs();
+    const data = new Uint8Array(await file.arrayBuffer());
+    const doc = await lib.getDocument({ data, isEvalSupported: false, useSystemFonts: true }).promise;
+    const pages = [];
+    for (let pageNumber = 1; pageNumber <= doc.numPages; pageNumber++) {
+      const page = await doc.getPage(pageNumber);
+      const content = await page.getTextContent();
+      // 按 y 坐标聚成行，否则整页文字会被拼成一整段，题号/选项全部丢失。
+      const rows = new Map();
+      (content.items || []).forEach(item => {
+        if (!item || typeof item.str !== 'string') return;
+        const transform = item.transform || [1, 0, 0, 1, 0, 0];
+        const y = Math.round((Number(transform[5]) || 0) / 3) * 3;
+        if (!rows.has(y)) rows.set(y, []);
+        rows.get(y).push({ x: Number(transform[4]) || 0, str: item.str });
+      });
+      const lines = Array.from(rows.entries())
+        .sort((a, b) => b[0] - a[0])
+        .map(([, items]) => items.sort((a, b) => a.x - b.x).map(part => part.str).join('').replace(/\s+/g, ' ').trim())
+        .filter(Boolean);
+      pages.push(lines.join('\n'));
+    }
+    try { doc.destroy(); } catch (e) {}
+    return pages.join('\n');
+  }
+
+  // ==================== 题库导入：统一入口 ====================
+  function xxtDetectBankFileKind(file) {
+    const name = String(file && file.name || '').toLowerCase();
+    const type = String(file && file.type || '').toLowerCase();
+    if (name.endsWith('.json') || type.includes('json')) return 'json';
+    if (name.endsWith('.docx')) return 'docx';
+    if (name.endsWith('.doc') || type === 'application/msword') return 'doc';
+    if (name.endsWith('.pdf') || type === 'application/pdf') return 'pdf';
+    if (name.endsWith('.md') || name.endsWith('.markdown')) return 'md';
+    if (name.endsWith('.txt')) return 'txt';
+    return 'txt';
+  }
+
+  // 把任意受支持的题库文件转换为“一个可存入的题库对象”。
+  async function xxtParseBankFile(file, onProgress) {
+    const report = typeof onProgress === 'function' ? onProgress : () => {};
+    const kind = xxtDetectBankFileKind(file);
+    const baseName = String(file.name || '导入题库').replace(/\.[^.]+$/, '').trim().substring(0, 80) || '导入题库';
+
+    if (kind === 'json') {
+      report('正在读取 JSON…');
+      const raw = await file.text();
+      const parsed = JSON.parse(raw);
+      if (!isSupportedQuestionBankImportLoose(parsed)) {
+        throw new Error('JSON 结构不受支持；可选择本脚本备份、OCS JSON 或题目数组');
+      }
+      return { kind, banks: normalizeQuestionBankState(parsed).banks };
+    }
+
+    if (kind === 'doc') {
+      throw new Error('旧版 .doc 无法解析，请用 Word/WPS 另存为 .docx 后再导入');
+    }
+
+    let text = '';
+    if (kind === 'docx') {
+      report('正在解析 Word 文档…');
+      text = await xxtDocxToText(file);
+    } else if (kind === 'pdf') {
+      report('正在解析 PDF（首次需要下载解析组件）…');
+      text = await xxtPdfToText(file);
+    } else {
+      report('正在读取文本…');
+      text = await file.text();
+    }
+
+    if (!String(text || '').trim()) {
+      throw new Error(kind === 'pdf'
+        ? 'PDF 中没有可提取的文字（可能是扫描图片版），请改用 Word 或 TXT 导入'
+        : '文件中没有可识别的文字内容');
+    }
+
+    report('正在识别题目结构…');
+    const grouped = xxtParseQuestionsFromText(text);
+    const total = QUESTION_BANK_TYPES.reduce((sum, type) => sum + grouped[type].length, 0);
+    if (!total) {
+      throw new Error('未能从文件中识别出题目；请确认题目题号为“1.”、选项为“A.”、答案为“答案：”等常见格式');
+    }
+    const bank = normalizeQuestionBank({ name: baseName, results: grouped });
+    return { kind, banks: [bank], rawTextLength: String(text).length };
+  }
+
+  // isSupportedQuestionBankImport 定义在 createPanel 内，这里提供同语义的全局版本。
+  function isSupportedQuestionBankImportLoose(raw) {
+    if (Array.isArray(raw)) return true;
+    if (!raw || typeof raw !== 'object') return false;
+    if (raw.bank || raw.banks || raw.questions || raw.results || raw.items) return true;
+    return Object.values(raw).some(value => Array.isArray(value));
+  }
+
+  // ==================== AI：OpenAI 兼容提供商 ====================
+  // 统一的 HTTP 层：优先 GM_xmlhttpRequest（可绕开 CORS），失败时回退 fetch。
+  function xxtAiHttp(options = {}) {
+    const { url, method = 'GET', headers = {}, body = null, timeout = 90000 } = options;
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const done = (fn, value) => { if (settled) return; settled = true; fn(value); };
+      if (typeof GM_xmlhttpRequest === 'function') {
+        try {
+          GM_xmlhttpRequest({
+            method,
+            url,
+            headers,
+            data: body == null ? undefined : body,
+            timeout,
+            onload: response => done(resolve, { status: Number(response.status) || 0, text: String(response.responseText || '') }),
+            onerror: () => done(reject, new Error('网络请求失败，请检查 Base URL 与网络连通性')),
+            ontimeout: () => done(reject, new Error('请求超时（' + Math.round(timeout / 1000) + ' 秒）')),
+            onabort: () => done(reject, new Error('请求已取消'))
+          });
+          return;
+        } catch (e) { /* 回退 fetch */ }
+      }
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
+      fetch(url, { method, headers, body: body == null ? undefined : body, signal: controller.signal })
+        .then(async response => done(resolve, { status: response.status, text: await response.text() }))
+        .catch(error => done(reject, new Error(error && error.name === 'AbortError' ? '请求超时' : (error.message || '网络请求失败'))))
+        .finally(() => clearTimeout(timer));
+    });
+  }
+
+  function xxtNormalizeAiBaseUrl(value) {
+    let url = String(value || '').trim();
+    if (!url) return '';
+    url = url.replace(/\/+$/, '');
+    url = url.replace(/\/(?:chat\/completions|models)$/i, '');
+    // 用户常直接填 https://api.xxx.com，这里补上 /v1；已有 /v1、/v2 等版本段则保持不变。
+    if (!/\/v\d+[a-z]*$/i.test(url)) url += '/v1';
+    return url;
+  }
+
+  function xxtAiConfigReady() {
+    const ai = (currentSettings && currentSettings.ai) || {};
+    return !!(xxtNormalizeAiBaseUrl(ai.baseUrl) && ai.apiKey && ai.model);
+  }
+
+  function xxtAiConfigHint() {
+    const ai = (currentSettings && currentSettings.ai) || {};
+    const missing = [];
+    if (!xxtNormalizeAiBaseUrl(ai.baseUrl)) missing.push('Base URL');
+    if (!ai.apiKey) missing.push('API Key');
+    if (!ai.model) missing.push('模型');
+    return missing.length ? `请先在“AI 设置”里补全：${missing.join('、')}` : '';
+  }
+
+  async function xxtAiListModels() {
+    const ai = (currentSettings && currentSettings.ai) || {};
+    const base = xxtNormalizeAiBaseUrl(ai.baseUrl);
+    if (!base) throw new Error('请先填写 Base URL，例如 https://api.openai.com/v1');
+    if (!ai.apiKey) throw new Error('请先填写 API Key');
+    const response = await xxtAiHttp({
+      url: `${base}/models`,
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${ai.apiKey}` },
+      timeout: 30000
+    });
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(`获取模型失败（HTTP ${response.status}）：${xxtAiShortError(response.text)}`);
+    }
+    let parsed = null;
+    try { parsed = JSON.parse(response.text); } catch (e) { throw new Error('模型列表返回的不是 JSON，请检查 Base URL 是否正确'); }
+    const list = Array.isArray(parsed && parsed.data) ? parsed.data
+      : Array.isArray(parsed && parsed.models) ? parsed.models
+        : Array.isArray(parsed) ? parsed : [];
+    const ids = list
+      .map(item => String((item && (item.id || item.name || item.model)) || '').trim())
+      .filter(Boolean);
+    const unique = Array.from(new Set(ids)).sort((a, b) => a.localeCompare(b));
+    if (!unique.length) throw new Error('该接口没有返回可用模型（部分第三方中转需要手动填写模型名）');
+    return unique;
+  }
+
+  function xxtAiShortError(text) {
+    const raw = String(text || '').trim();
+    if (!raw) return '无返回内容';
+    try {
+      const parsed = JSON.parse(raw);
+      const message = parsed && parsed.error && (parsed.error.message || parsed.error.type);
+      if (message) return String(message).substring(0, 200);
+      if (parsed && parsed.message) return String(parsed.message).substring(0, 200);
+    } catch (e) { /* 非 JSON */ }
+    return raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 200);
+  }
+
+  async function xxtAiChat(messages, options = {}) {
+    const ai = (currentSettings && currentSettings.ai) || {};
+    const base = xxtNormalizeAiBaseUrl(ai.baseUrl);
+    if (!base) throw new Error('请先配置 AI 提供商的 Base URL');
+    if (!ai.apiKey) throw new Error('请先配置 AI 提供商的 API Key');
+    if (!ai.model) throw new Error('请先选择或填写模型');
+    const payload = {
+      model: ai.model,
+      messages,
+      temperature: typeof options.temperature === 'number' ? options.temperature : 0.2,
+      stream: false
+    };
+    const response = await xxtAiHttp({
+      url: `${base}/chat/completions`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ai.apiKey}` },
+      body: JSON.stringify(payload),
+      timeout: options.timeout || 90000
+    });
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(`AI 请求失败（HTTP ${response.status}）：${xxtAiShortError(response.text)}`);
+    }
+    let parsed = null;
+    try { parsed = JSON.parse(response.text); } catch (e) { throw new Error('AI 返回的不是 JSON'); }
+    const choice = parsed && Array.isArray(parsed.choices) ? parsed.choices[0] : null;
+    const content = choice && ((choice.message && choice.message.content) || choice.text) || '';
+    if (!String(content).trim()) throw new Error('AI 返回内容为空');
+    return String(content);
+  }
+
+  function xxtExtractJson(text) {
+    const raw = String(text || '').trim();
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    const body = fenced ? fenced[1] : raw;
+    const start = body.indexOf('{');
+    const end = body.lastIndexOf('}');
+    if (start < 0 || end <= start) return null;
+    try { return JSON.parse(body.slice(start, end + 1)); } catch (e) { return null; }
+  }
+
+  function xxtBuildAiAnswerPrompt(question, type) {
+    const stem = richTextOnly(questionContent(question)).replace(/\s+/g, ' ').trim();
+    const options = (question.options || [])
+      .map(option => `${option.letter}. ${richTextOnly(optionContent(option)).replace(/\s+/g, ' ').trim()}`)
+      .join('\n');
+    const rules = {
+      '单选': '只返回一个选项字母，例如 "A"。',
+      '多选': '返回按字母升序拼接的多个选项字母，例如 "ABD"，不要任何分隔符。',
+      '判断': '只返回 "对" 或 "错"。',
+      '填空': '多个空按顺序用 "；" 分隔，只返回答案内容，不要题号、不要“第1空”等前缀。',
+      '简答': '给出简洁的参考答案要点，控制在 200 字以内。'
+    }[type] || '给出最准确的答案。';
+    return [
+      {
+        role: 'system',
+        content: '你是严谨的学科题库校对专家。只输出一个 JSON 对象，不要输出 Markdown 代码块或任何额外说明文字。'
+      },
+      {
+        role: 'user',
+        content: [
+          `题型：${XXT_TYPE_LABELS[type] || type}`,
+          `题干：${stem}`,
+          options ? `选项：\n${options}` : '',
+          `作答要求：${rules}`,
+          '输出格式：{"answer":"答案","explanation":"解题依据，120字以内","confidence":0.0到1.0之间的小数}',
+          '若题目信息不足或无法确定答案，请让 answer 为空字符串、confidence 为 0。'
+        ].filter(Boolean).join('\n')
+      }
+    ];
+  }
+
+  function xxtNormalizeAiAnswer(rawAnswer, type) {
+    let answer = String(rawAnswer == null ? '' : rawAnswer).trim();
+    answer = answer.replace(/^\s*(?:参考)?(?:正确)?答案\s*[：:]\s*/i, '').trim();
+    answer = answer.replace(/^["'“”『』]+|["'“”『』]+$/g, '').trim();
+    if (!answer) return '';
+    if (type === '单选') {
+      const letters = answer.toUpperCase().match(/[A-H]/g);
+      return letters && letters.length ? letters[0] : answer;
+    }
+    if (type === '多选') {
+      const letters = answer.toUpperCase().match(/[A-H]/g);
+      return letters && letters.length ? Array.from(new Set(letters)).sort().join('') : answer;
+    }
+    if (type === '判断') {
+      if (/^(?:对|正确|是|√|✓|true|t|yes|y)$/i.test(answer)) return '对';
+      if (/^(?:错|错误|不正确|否|×|✗|false|f|no|n)$/i.test(answer)) return '错';
+      return answer;
+    }
+    return answer;
+  }
+
+  // 单题：请求 AI 给出答案并返回标准化结果（不写入任何数据）。
+  // 只请求解析（题干/选项/已有答案都在上下文里），用于“一键补全解析”。
+  function xxtBuildAiExplanationPrompt(question, type) {
+    const stem = richTextOnly(questionContent(question)).replace(/\s+/g, ' ').trim();
+    const options = (question.options || [])
+      .map(option => `${option.letter}. ${richTextOnly(optionContent(option)).replace(/\s+/g, ' ').trim()}`)
+      .join('\n');
+    const answer = String(question.correctAnswer || richTextOnly(answerContent(question)) || '').trim();
+    return [
+      {
+        role: 'system',
+        content: '你是严谨的学科题库解析专家。只输出一个 JSON 对象，不要输出 Markdown 代码块或任何额外说明文字。'
+      },
+      {
+        role: 'user',
+        content: [
+          `题型：${XXT_TYPE_LABELS[type] || type}`,
+          `题干：${stem}`,
+          options ? `选项：\n${options}` : '',
+          answer ? `正确答案：${answer}` : '正确答案：未知，请先自行判断正确答案，再写解析',
+          '任务：为这道题写一段简洁、可读的中文解析，说明为什么选这个答案，并简述其他选项为何不合适。',
+          '要求：不要重复完整题干；不要输出“答案：xxx”前缀；控制在 160 字以内；如果题目信息不足，explanation 返回空字符串。',
+          '输出格式：{"explanation":"解析正文","confidence":0.0到1.0之间的小数}'
+        ].filter(Boolean).join('\n')
+      }
+    ];
+  }
+
+  async function xxtAiExplainQuestion(question, type) {
+    const content = await xxtAiChat(xxtBuildAiExplanationPrompt(question, type));
+    const parsed = xxtExtractJson(content);
+    if (!parsed) {
+      const plain = String(content || '').trim().replace(/^\s*解析\s*[：:]\s*/, '');
+      if (!plain) throw new Error('AI 未返回可用的解析');
+      return { explanation: plain.substring(0, 1000), confidence: 0.5 };
+    }
+    const explanation = String(parsed.explanation || '').replace(/\s+/g, ' ').trim().substring(0, 2000);
+    const confidence = Math.max(0, Math.min(1, Number(parsed.confidence) || 0));
+    return { explanation, confidence };
+  }
+
+  async function xxtAiAnswerQuestion(question, type) {
+    const content = await xxtAiChat(xxtBuildAiAnswerPrompt(question, type));
+    const parsed = xxtExtractJson(content);
+    if (!parsed) {
+      const plain = xxtNormalizeAiAnswer(content, type);
+      if (!plain) throw new Error('AI 未返回可解析的答案');
+      return { answer: plain, explanation: '', confidence: 0.5, raw: content };
+    }
+    const answer = xxtNormalizeAiAnswer(parsed.answer, type);
+    const confidence = Math.max(0, Math.min(1, Number(parsed.confidence) || 0));
+    return {
+      answer,
+      explanation: String(parsed.explanation || '').trim().substring(0, 500),
+      confidence,
+      raw: content
+    };
+  }
+
+  // ==================== 通用选择弹窗（导出格式 / AI 设置） ====================
+  // 统一的自绘弹窗，避免使用 prompt/confirm 在部分站点的弹窗拦截或样式割裂。
+  const XXT_DIALOG_CSS = `
+    position:fixed; inset:0; z-index:100020; display:flex; align-items:center; justify-content:center;
+    background:rgba(15,23,42,.42); backdrop-filter:blur(4px); font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;
+  `;
+
+  function xxtOpenDialog(options) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = XXT_DIALOG_CSS;
+    const box = document.createElement('div');
+    box.style.cssText = [
+      'width:min(520px,94vw);max-height:88vh;overflow:auto;background:#fff;border:1px solid rgba(124,92,240,.22)',
+      'border-radius:20px;box-shadow:0 24px 60px -20px rgba(15,23,42,.45);padding:20px;color:#1f2937',
+      'box-sizing:border-box'
+    ].join(';');
+    box.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid #e5e7eb;">
+        <strong style="font-size:15px;font-weight:800;">${xxtEscapeHtml(options.title || '')}</strong>
+        <button type="button" data-dialog-close style="width:26px;height:26px;border:0;border-radius:50%;background:rgba(15,23,42,.05);color:#9ca3af;cursor:pointer;font-size:15px;">&times;</button>
+      </div>
+      <div data-dialog-body></div>
+    `;
+    overlay.appendChild(box);
+    (document.body || document.documentElement).appendChild(overlay);
+
+    const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey, true); };
+    const onKey = event => {
+      if (event.key === 'Escape') { event.stopPropagation(); close(); }
+    };
+    document.addEventListener('keydown', onKey, true);
+    box.querySelector('[data-dialog-close]').addEventListener('click', close);
+    overlay.addEventListener('click', event => { if (event.target === overlay) close(); });
+
+    const body = box.querySelector('[data-dialog-body]');
+    if (typeof options.render === 'function') options.render(body, close);
+    return { overlay, box, body, close };
+  }
+
+  const XXT_EXPORT_FORMATS = [
+    { value: 'word', label: 'Word 试卷（.docx）', hint: '带图片的完整试卷，可在 Word/WPS 中继续编辑' },
+    { value: 'pdf', label: 'PDF 文档（.pdf）', hint: '适合直接打印或发到手机阅读' },
+    { value: 'md', label: 'Markdown（.md）', hint: '纯文本富格式，适合粘贴到笔记或再次整理' },
+    { value: 'txt', label: '纯文本（.txt）', hint: '体积最小，任何设备都能打开' },
+    { value: 'json', label: 'JSON 题库备份（.json）', hint: '可重新导入本脚本；题库区建议用它做备份' }
+  ];
+
+  // 统一的“选择导出格式”弹窗。resolve 返回选中的格式字符串，取消则返回 null。
+  // 导出选项弹窗：选格式 + 是否带答案 + 是否带解析。
+  // 返回 { format, withAnswers, withExplanation } 或 null（取消）。
+  // 解析(checkable)：JSON 与 txt/md/json 都支持；Word/PDF 同样支持。
+  function xxtChooseExportOptions(options = {}) {
+    return new Promise(resolve => {
+      const formats = Array.isArray(options.formats) && options.formats.length ? options.formats : XXT_EXPORT_FORMATS;
+      const state = {
+        format: options.defaultValue || formats[0].value,
+        withAnswers: options.withAnswers !== false,
+        withExplanation: !!options.withExplanation
+      };
+      let settled = false;
+      const finish = (value, close) => {
+        if (settled) return;
+        settled = true;
+        close();
+        resolve(value);
+      };
+      xxtOpenDialog({
+        title: options.title || '导出选项',
+        render(body, close) {
+          const list = document.createElement('div');
+          list.style.cssText = 'display:grid;gap:8px;';
+
+          const paintFormats = () => {
+            list.querySelectorAll('label[data-fmt]').forEach(node => {
+              const input = node.querySelector('input');
+              const on = !!(input && input.checked);
+              node.style.borderColor = on ? '#7c5cf0' : '#e5e7eb';
+              node.style.background = on ? 'rgba(124,92,240,.06)' : '#fff';
+            });
+          };
+
+          formats.forEach(item => {
+            const label = document.createElement('label');
+            label.dataset.fmt = item.value;
+            label.style.cssText = 'display:grid;grid-template-columns:18px 1fr;gap:9px;align-items:start;padding:10px 12px;border:1px solid #e5e7eb;border-radius:12px;cursor:pointer;transition:all .18s ease;';
+            label.innerHTML = `
+              <input type="radio" name="xxt-export-fmt" value="${xxtEscapeAttr(item.value)}"${item.value === state.format ? ' checked' : ''} style="margin-top:2px;accent-color:#7c5cf0;cursor:pointer;">
+              <span>
+                <span style="display:block;font-size:13px;font-weight:800;">${xxtEscapeHtml(item.label)}</span>
+                <span style="display:block;margin-top:2px;font-size:11px;color:#6b7280;line-height:1.5;">${xxtEscapeHtml(item.hint || '')}</span>
+              </span>`;
+            label.addEventListener('change', () => { state.format = item.value; paintFormats(); });
+            list.appendChild(label);
+          });
+          body.appendChild(list);
+
+          // ---- 内容选项 ----
+          const optWrap = document.createElement('div');
+          optWrap.style.cssText = 'margin-top:14px;padding-top:13px;border-top:1px solid #e5e7eb;display:grid;gap:9px;';
+
+          const makeToggle = (key, title, hint) => {
+            const row = document.createElement('label');
+            row.style.cssText = 'display:grid;grid-template-columns:18px 1fr;gap:9px;align-items:start;cursor:pointer;';
+            row.innerHTML = `
+              <input type="checkbox" data-opt="${key}"${state[key] ? ' checked' : ''} style="margin-top:2px;accent-color:#7c5cf0;cursor:pointer;">
+              <span>
+                <span style="display:block;font-size:12.5px;font-weight:700;">${xxtEscapeHtml(title)}</span>
+                <span style="display:block;margin-top:1px;font-size:11px;color:#6b7280;line-height:1.5;">${xxtEscapeHtml(hint)}</span>
+              </span>`;
+            row.querySelector('input').addEventListener('change', event => {
+              state[key] = event.target.checked;
+            });
+            return row;
+          };
+
+          optWrap.appendChild(makeToggle('withAnswers', '包含答案', '题目后附“答案：A”'));
+          optWrap.appendChild(makeToggle('withExplanation', '包含解析', '题目后附 AI 或导入时识别到的解析；没有解析的题不会凭空生成'));
+          body.appendChild(optWrap);
+
+          const actions = document.createElement('div');
+          actions.style.cssText = 'display:flex;justify-content:flex-end;gap:10px;padding-top:16px;margin-top:14px;border-top:1px solid #e5e7eb;';
+          actions.innerHTML = `
+            <button type="button" data-dialog-cancel style="border:1px solid #e5e7eb;border-radius:10px;padding:9px 18px;background:transparent;color:#6b7280;cursor:pointer;font:700 13px inherit;">取消</button>
+            <button type="button" data-dialog-ok style="border:0;border-radius:10px;padding:9px 20px;background:linear-gradient(135deg,#7c5cf0,#38bdf8);color:#fff;cursor:pointer;font:700 13px inherit;">导出</button>`;
+          actions.querySelector('[data-dialog-cancel]').addEventListener('click', () => finish(null, close));
+          actions.querySelector('[data-dialog-ok]').addEventListener('click', () => finish({ ...state }, close));
+          body.appendChild(actions);
+          paintFormats();
+          setTimeout(() => {
+            const button = actions.querySelector('[data-dialog-ok]');
+            if (button) button.focus();
+          }, 0);
+        }
+      });
+    });
+  }
+
+  // 旧名字保留为薄封装，避免其他调用点漏改时崩掉。
+  async function xxtChooseExportFormat(options = {}) {
+    const choice = await xxtChooseExportOptions(options);
+    return choice ? choice.format : null;
+  }
+
+  // ==================== AI 设置弹窗 ====================
+  let xxtAiSettingsDialog = null;
+
+  function openAiSettings() {
+    if (xxtAiSettingsDialog) {
+      try { xxtAiSettingsDialog.overlay.remove(); } catch (e) {}
+      xxtAiSettingsDialog = null;
+    }
+    const ai = normalizeAiSettings(currentSettings.ai);
+    const dialog = xxtOpenDialog({
+      title: 'AI 提供商设置（OpenAI 兼容）',
+      render(body, close) {
+        body.innerHTML = `
+          <div style="display:grid;gap:12px;">
+            <label style="display:grid;gap:5px;font-size:12px;font-weight:700;color:#374151;">
+              Base URL
+              <input data-ai-field="baseUrl" type="text" placeholder="https://api.openai.com/v1" style="padding:9px 11px;border:1px solid #e5e7eb;border-radius:10px;font:13px inherit;color:#1f2937;">
+              <small style="font-weight:400;color:#6b7280;">填到 /v1 即可，脚本会自动拼接 /chat/completions。第三方中转地址同样适用。</small>
+            </label>
+            <label style="display:grid;gap:5px;font-size:12px;font-weight:700;color:#374151;">
+              API Key
+              <input data-ai-field="apiKey" type="password" placeholder="sk-…" autocomplete="off" style="padding:9px 11px;border:1px solid #e5e7eb;border-radius:10px;font:13px inherit;color:#1f2937;">
+              <small style="font-weight:400;color:#6b7280;">只保存在本机浏览器，不会随题库导出。</small>
+            </label>
+            <div style="display:grid;gap:6px;font-size:12px;font-weight:700;color:#374151;">
+              模型
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <select data-ai-field="model" style="flex:1 1 200px;min-width:150px;padding:9px 11px;border:1px solid #e5e7eb;border-radius:10px;font:13px inherit;color:#1f2937;background:#fff;"></select>
+                <button type="button" data-ai-fetch-models style="border:1px solid #7c5cf0;background:#fff;color:#5b3fd8;border-radius:10px;padding:9px 14px;cursor:pointer;font:700 12px inherit;white-space:nowrap;">一键获取模型</button>
+              </div>
+              <input data-ai-field="modelManual" type="text" placeholder="手动填写模型名（如 gpt-4o-mini）" style="padding:9px 11px;border:1px solid #e5e7eb;border-radius:10px;font:13px inherit;color:#1f2937;">
+            </div>
+            <label style="display:grid;gap:5px;font-size:12px;font-weight:700;color:#374151;">
+              并发请求数
+              <input data-ai-field="concurrency" type="number" min="1" max="6" step="1" style="width:110px;padding:9px 11px;border:1px solid #e5e7eb;border-radius:10px;font:13px inherit;color:#1f2937;">
+              <small style="font-weight:400;color:#6b7280;">1-6，建议 2；并发过高容易被限流。</small>
+            </label>
+            <div data-ai-status style="min-height:20px;font-size:11px;line-height:1.6;color:#6b7280;"></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:16px;margin-top:14px;border-top:1px solid #e5e7eb;">
+            <button type="button" data-ai-test style="border:1px solid #e5e7eb;border-radius:10px;padding:9px 16px;background:transparent;color:#6b7280;cursor:pointer;font:700 13px inherit;">测试连接</button>
+            <button type="button" data-ai-cancel style="border:1px solid #e5e7eb;border-radius:10px;padding:9px 18px;background:transparent;color:#6b7280;cursor:pointer;font:700 13px inherit;">取消</button>
+            <button type="button" data-ai-save style="border:0;border-radius:10px;padding:9px 20px;background:linear-gradient(135deg,#7c5cf0,#38bdf8);color:#fff;cursor:pointer;font:700 13px inherit;">保存</button>
+          </div>`;
+
+        const baseInput = body.querySelector('[data-ai-field="baseUrl"]');
+        const keyInput = body.querySelector('[data-ai-field="apiKey"]');
+        const modelSelect = body.querySelector('[data-ai-field="model"]');
+        const modelManual = body.querySelector('[data-ai-field="modelManual"]');
+        const concurrencyInput = body.querySelector('[data-ai-field="concurrency"]');
+        const statusEl = body.querySelector('[data-ai-status]');
+        const fetchBtn = body.querySelector('[data-ai-fetch-models]');
+        const testBtn = body.querySelector('[data-ai-test]');
+
+        baseInput.value = ai.baseUrl || '';
+        keyInput.value = ai.apiKey || '';
+        concurrencyInput.value = String(ai.concurrency || 2);
+        modelManual.value = ai.model || '';
+
+        const paintModels = (models, current) => {
+          modelSelect.innerHTML = '<option value="">（未选择）</option>' +
+            models.map(id => `<option value="${xxtEscapeAttr(id)}">${xxtEscapeHtml(id)}</option>`).join('');
+          if (current && models.includes(current)) modelSelect.value = current;
+          else if (current) modelSelect.value = '';
+        };
+        paintModels(ai.models || [], ai.model || '');
+
+        modelSelect.addEventListener('change', () => {
+          if (modelSelect.value) modelManual.value = modelSelect.value;
+        });
+
+        const setStatus = (text, tone = 'info') => {
+          statusEl.textContent = text;
+          statusEl.style.color = tone === 'err' ? '#dc2626' : tone === 'ok' ? '#047857' : '#6b7280';
+        };
+
+        const readForm = () => ({
+          baseUrl: baseInput.value.trim(),
+          apiKey: keyInput.value.trim(),
+          model: modelManual.value.trim(),
+          concurrency: Math.max(1, Math.min(6, Number(concurrencyInput.value) || 2))
+        });
+
+        // 临时把表单值写入 currentSettings，供“获取模型/测试连接”使用；
+        // 用户点取消时会回滚，不会意外保存。
+        const withTempConfig = async action => {
+          const backup = JSON.parse(JSON.stringify(currentSettings.ai || {}));
+          currentSettings.ai = { ...normalizeAiSettings(backup), ...readForm() };
+          try { return await action(); } finally { currentSettings.ai = normalizeAiSettings(backup); }
+        };
+
+        fetchBtn.addEventListener('click', async () => {
+          const form = readForm();
+          if (!xxtNormalizeAiBaseUrl(form.baseUrl)) { setStatus('请先填写 Base URL', 'err'); baseInput.focus(); return; }
+          if (!form.apiKey) { setStatus('请先填写 API Key', 'err'); keyInput.focus(); return; }
+          fetchBtn.disabled = true;
+          const originalText = fetchBtn.textContent;
+          fetchBtn.textContent = '获取中…';
+          setStatus('正在向 /models 请求模型列表…');
+          try {
+            const models = await withTempConfig(() => xxtAiListModels());
+            ai.models = models;
+            paintModels(models, form.model || models[0]);
+            if (!form.model && models.length) modelManual.value = models[0];
+            setStatus(`已获取 ${models.length} 个模型，请从下拉框选择或在下方手动填写`, 'ok');
+          } catch (error) {
+            setStatus(`${error.message || error}`, 'err');
+          } finally {
+            fetchBtn.disabled = false;
+            fetchBtn.textContent = originalText;
+          }
+        });
+
+        testBtn.addEventListener('click', async () => {
+          const form = readForm();
+          if (!form.baseUrl || !form.apiKey || !form.model) { setStatus('测试需要 Base URL、API Key 和模型三项都填写完整', 'err'); return; }
+          testBtn.disabled = true;
+          const originalText = testBtn.textContent;
+          testBtn.textContent = '测试中…';
+          setStatus('正在发送测试请求…');
+          try {
+            const reply = await withTempConfig(() => xxtAiChat(
+              [{ role: 'user', content: '只回复两个字：可用' }],
+              { temperature: 0, timeout: 45000 }
+            ));
+            setStatus(`连接正常，模型回复：${String(reply).trim().substring(0, 60)}`, 'ok');
+          } catch (error) {
+            setStatus(`连接失败：${error.message || error}`, 'err');
+          } finally {
+            testBtn.disabled = false;
+            testBtn.textContent = originalText;
+          }
+        });
+
+        const save = () => {
+          const form = readForm();
+          if (!form.baseUrl) { setStatus('请填写 Base URL', 'err'); baseInput.focus(); return; }
+          if (!form.apiKey) { setStatus('请填写 API Key', 'err'); keyInput.focus(); return; }
+          if (!form.model) { setStatus('请选择或手动填写模型名', 'err'); modelManual.focus(); return; }
+          const previousAi = { ...(currentSettings.ai || {}) };
+          currentSettings.ai = {
+            baseUrl: xxtNormalizeAiBaseUrl(form.baseUrl),
+            apiKey: form.apiKey,
+            model: form.model,
+            models: Array.isArray(ai.models) && ai.models.length ? ai.models : (currentSettings.ai.models || []),
+            concurrency: form.concurrency,
+            lastTestAt: currentSettings.ai.lastTestAt || '',
+            lastTestOk: currentSettings.ai.lastTestOk
+          };
+          const ok = saveSettings(currentSettings);
+          if (!ok) {
+            // 写盘失败必须留在弹窗里并明确告知，不能假装成功。
+            currentSettings.ai = previousAi;
+            const info = describeSettingsStorage();
+            const lines = [
+              '保存失败：' + (settingsSaveError || '浏览器存储不可用'),
+              '当前占用：设置 ' + Math.round(info.settingsBytes / 1024) + ' KB，历史 ' + Math.round(info.historyBytes / 1024) + ' KB',
+              '可先到“历史记录”里删除旧条目，或用浏览器设置清理本站数据后重试。'
+            ];
+            setStatus(lines.join(String.fromCharCode(10)), 'err');
+            showGlobalToast('AI 设置未保存成功', 'err');
+            return;
+          }
+          if (typeof window.__xxt_refresh_bank_ai === 'function') window.__xxt_refresh_bank_ai();
+          close();
+          showGlobalToast('AI 设置已保存：' + currentSettings.ai.model);
+        };
+
+        // 打开时即回显当前配置状态，避免“以为保存了其实没有”的错觉。
+        const info = describeSettingsStorage();
+        if (info.error) {
+          setStatus('上次保存失败：' + info.error, 'err');
+        } else if (ai.baseUrl && ai.apiKey && ai.model) {
+          setStatus(`当前已配置：${xxtNormalizeAiBaseUrl(ai.baseUrl)} · ${ai.model}`, 'ok');
+        } else {
+          setStatus('尚未配置：填完三项后点“保存”才会生效', 'info');
+        }
+
+        body.querySelector('[data-ai-save]').addEventListener('click', save);
+        body.querySelector('[data-ai-cancel]').addEventListener('click', close);
+        setTimeout(() => baseInput.focus(), 0);
+      }
+    });
+    xxtAiSettingsDialog = dialog;
+    return dialog;
+  }
+
+  // 轻量全局提示：面板未初始化时也能给反馈。
+  function showGlobalToast(message, tone = 'ok') {
+    const toast = document.createElement('div');
+    toast.textContent = String(message || '');
+    toast.style.cssText = [
+      'position:fixed', 'left:50%', 'bottom:32px', 'transform:translateX(-50%)', 'z-index:100030',
+      'max-width:calc(100vw - 32px)', 'padding:11px 18px', 'border-radius:12px',
+      'font:700 13px/1.5 "Microsoft YaHei","PingFang SC",Arial,sans-serif',
+      'color:#fff', 'box-shadow:0 14px 34px -12px rgba(15,23,42,.5)', 'pointer-events:none',
+      'background:' + (tone === 'err' ? 'linear-gradient(135deg,#ef4444,#dc2626)' : 'linear-gradient(135deg,#7c5cf0,#38bdf8)')
+    ].join(';');
+    (document.body || document.documentElement).appendChild(toast);
+    setTimeout(() => { toast.style.transition = 'opacity .3s ease'; toast.style.opacity = '0'; }, 2200);
+    setTimeout(() => toast.remove(), 2600);
+  }
+
   // ==================== 快捷键 ====================
   function formatShortcutLabel(sc) {
     const parts = [];
@@ -4621,6 +5852,25 @@ Typr["U"] = {
   });
 
   // ==================== 提取逻辑 ====================
+  // 题型识别必须「具体优先于宽泛」。
+  // 原实现把宽泛的 '选择题' 放在 TYPE_MAP 里且靠前/同轮匹配，
+  // 于是「多项选择题」「不定项选择题」会先命中 '选择题' → 被误判成单选，
+  // 这正是用户反馈「多选和判断都被识别成单选」的根因之一。
+  // 这里改为按「长词优先」的有序规则逐条判定，宽泛词放最后。
+  const TYPE_RULES = [
+    // 多选题的各种写法
+    { test: /多项选择|多选|不定项|multiple[\s_-]*choice|checkbox/i, type: '多选' },
+    // 判断题的各种写法
+    { test: /判断|正误|是非|true[\s_/或-]*(?:or[\s_-]*)?false|judg(e|ment)/i, type: '判断' },
+    // 填空题
+    { test: /填空|fill[\s_-]*(?:in[\s_-]*)?(?:the[\s_-]*)?blank/i, type: '填空' },
+    // 简答类
+    { test: /简答|问答|论述|名词解释|案例分析|计算题|essay|subjective/i, type: '简答' },
+    // 单选类（含宽泛的“选择题”，必须放最后）
+    { test: /单项选择|单选|选择|single[\s_-]*choice|radio/i, type: '单选' }
+  ];
+
+  // 兼容旧引用：保留 TYPE_MAP 供可能的外部引用，但不再参与判定。
   const TYPE_MAP = {
     '多选题': '多选', '单选题': '单选', '选择题': '单选',
     '填空题': '填空', '判断题': '判断', '简答题': '简答',
@@ -4629,15 +5879,11 @@ Typr["U"] = {
 
   function detectTypeFromText(text) {
     const value = String(text || '');
-    for (const [label, type] of Object.entries(TYPE_MAP)) {
-      if (value.includes(label)) return type;
+    if (!value.trim()) return null;
+    // 按 TYPE_RULES 的顺序（具体 → 宽泛）判定，且“多选”始终优先于“选择”。
+    for (const rule of TYPE_RULES) {
+      if (rule.test.test(value)) return rule.type;
     }
-    // 随堂练习部分版本使用英文题型名或“正误题”等别名。
-    if (/单项选择|single.?choice|radio/i.test(value)) return '单选';
-    if (/多项选择|multiple.?choice|checkbox/i.test(value)) return '多选';
-    if (/正误题|是非题|true.?false|judg(e|ment)/i.test(value)) return '判断';
-    if (/填空|fill.?blank/i.test(value)) return '填空';
-    if (/论述|问答|简答|essay|subjective/i.test(value)) return '简答';
     return null;
   }
 
@@ -5900,7 +7146,7 @@ Typr["U"] = {
 
   // 随堂练习 answerQuestion2 页面：题号、题型和题干在同一标题行，选项是普通 li。
   function extractFromQuizPracticeRoot(root) {
-    const typePattern = /^(?:[［\[【(（].*(题)[］\]】)）]|(?:单选题|多选题|填空题|判断题|简答题|选择题))$/;
+    const typePattern = /^(?:[［\[【(（][^］\]】)）]{1,12}[］\]】)）]|(?:单项选择|多项选择|不定项选择|单选题|多选题|选择题|填空题|判断题|简答题|论述题|问答题|是非题|正误题)题?)$/;
     const typePredicate = el => {
       const text = (el.textContent || '').trim();
       if (text.length > 20 || !detectTypeFromText(text) || !typePattern.test(text)) return false;
@@ -6200,8 +7446,14 @@ Typr["U"] = {
       const typeTit = area.querySelector('.newTestType')
         || (area.previousElementSibling && area.previousElementSibling.querySelector('.newTestType'));
       if (typeTit) {
-        currentType = detectTypeFromText(typeTit.textContent || '');
+        const detected = detectTypeFromText(typeTit.textContent || '');
+        // 关键：识别失败的题型标题不能沿用上一节，否则「判断题」会继续被
+        // 记成上一节的「单选」，这正是用户反馈的类型错乱。
+        currentType = detected || null;
         if (currentType && !typeOrder.includes(currentType)) typeOrder.push(currentType);
+      } else {
+        // 本节没有题型标题元素：不要复用上一节类型，交给题干标签判断。
+        currentType = null;
       }
 
       // 一个 aiArea 可能包含多道 .TiMu；旧逻辑只取第一道，导致章节题量偏少。
@@ -6429,7 +7681,14 @@ Typr["U"] = {
   }
 
   // ==================== TXT 格式化（富文本） ====================
-  function formatOutput(results, typeOrder, withAnswers = false) {
+  // 题目解析文本（供导出时可选附加）。没有解析返回空串。
+  function questionExplanationText(q) {
+    if (!q) return '';
+    const raw = q.explanation ?? q.analysis ?? '';
+    return String(raw == null ? '' : raw).replace(/\s+/g, ' ').trim();
+  }
+
+  function formatOutput(results, typeOrder, withAnswers = false, withExplanation = false) {
     const typeLabels = {
       '单选': '单选题', '多选': '多选题', '填空': '填空题',
       '判断': '判断题', '简答': '简答题',
@@ -6459,6 +7718,10 @@ Typr["U"] = {
         if (withAnswers) {
           const answer = formatRichForText(answerContent(q)) || unavailableCorrectAnswerText(q);
           output += `答案：${answer}\n`;
+        }
+        if (withExplanation) {
+          const explanation = questionExplanationText(q);
+          if (explanation) output += `解析：${explanation}\n`;
         }
         output += '\n';
       }
@@ -6498,8 +7761,8 @@ Typr["U"] = {
     return output.trim();
   }
 
-  function formatOutputWithAnswers(results, typeOrder) {
-    return formatOutput(results, typeOrder, true);
+  function formatOutputWithAnswers(results, typeOrder, withExplanation = false) {
+    return formatOutput(results, typeOrder, true, withExplanation);
   }
 
   function formatWrongQuestionsTXT(results, typeOrder) {
@@ -6527,7 +7790,7 @@ Typr["U"] = {
   }
 
   // ==================== Markdown 格式化（富文本） ====================
-  function formatOutputMD(results, typeOrder, withAnswers = false) {
+  function formatOutputMD(results, typeOrder, withAnswers = false, withExplanation = false) {
     const typeLabels = {
       '单选': '单选题', '多选': '多选题', '填空': '填空题',
       '判断': '判断题', '简答': '简答题',
@@ -6561,6 +7824,10 @@ Typr["U"] = {
           const answer = formatRichForMD(answerContent(q)) || unavailableCorrectAnswerText(q);
           output += `> **答案：** ${answer}\n\n`;
         }
+        if (withExplanation) {
+          const explanation = questionExplanationText(q);
+          if (explanation) output += `> **解析：** ${explanation}\n\n`;
+        }
       }
       sectionIdx++;
     }
@@ -6592,8 +7859,8 @@ Typr["U"] = {
     return output.trim();
   }
 
-  function formatOutputWithAnswersMD(results, typeOrder) {
-    return formatOutputMD(results, typeOrder, true);
+  function formatOutputWithAnswersMD(results, typeOrder, withExplanation = false) {
+    return formatOutputMD(results, typeOrder, true, withExplanation);
   }
 
   function formatWrongQuestionsMD(results, typeOrder) {
@@ -6634,7 +7901,7 @@ Typr["U"] = {
     }).join('');
   }
 
-  function buildPdfHTML(results, typeOrder, title, withAnswers, withWrong) {
+  function buildPdfHTML(results, typeOrder, title, withAnswers, withWrong, withExplanation = false) {
     const typeHeaders = { '单选': '一、单项选择题', '多选': '二、多项选择题', '填空': '三、填空题', '判断': '四、判断题', '简答': '五、简答题' };
     let globalNum = 0;
     let html = `<div class="xxt-pdf-page"><h1>${pdfEscape(title || '学习通题目')}</h1>`;
@@ -6651,6 +7918,10 @@ Typr["U"] = {
         if (withAnswers) {
           const answer = answerContent(q);
           html += `<div class="xxt-pdf-answer"><b>答案：</b>${hasRichContent(answer) ? pdfRichHTML(answer) : pdfEscape(unavailableCorrectAnswerText(q))}</div>`;
+        }
+        if (withExplanation) {
+          const explanation = questionExplanationText(q);
+          if (explanation) html += `<div class="xxt-pdf-explanation"><b>解析：</b>${pdfEscape(explanation)}</div>`;
         }
         html += '</div>';
       }
@@ -6704,7 +7975,7 @@ Typr["U"] = {
     return false;
   }
 
-  async function generatePdf(results, typeOrder, title, withAnswers, withWrong, filename) {
+  async function generatePdf(results, typeOrder, title, withAnswers, withWrong, filename, withExplanation = false) {
     const pdfLib = window.html2pdf || (typeof html2pdf !== 'undefined' ? html2pdf : null);
     if (typeof pdfLib !== 'function') throw new Error('PDF 组件未加载，请刷新页面后重试');
 
@@ -6721,9 +7992,9 @@ Typr["U"] = {
       .xxt-pdf-page{box-sizing:border-box!important;display:block!important;width:794px!important;min-height:0!important;padding:42px 58px 48px!important;background:#fff!important;color:#111!important;-webkit-text-fill-color:#111!important;font-family:"Microsoft YaHei","Noto Sans CJK SC",Arial,sans-serif!important;font-size:14px!important;line-height:1.6!important;text-align:left!important;word-break:break-word!important}
       .xxt-pdf-render-root,.xxt-pdf-render-root *{box-sizing:border-box!important;visibility:visible!important;opacity:1!important;filter:none!important;text-shadow:none!important;transform:none!important;color:#111!important;-webkit-text-fill-color:#111!important;font-family:"Microsoft YaHei","Noto Sans CJK SC",Arial,sans-serif!important;letter-spacing:normal!important}
       .xxt-pdf-page div{display:block!important}.xxt-pdf-page b{font-weight:700!important}.xxt-pdf-page h1,.xxt-pdf-page h2{display:block!important;color:#111!important;-webkit-text-fill-color:#111!important}.xxt-pdf-page h1{text-align:center!important;font-size:23px!important;line-height:1.45!important;margin:0 0 28px!important;font-weight:700!important}.xxt-pdf-page h2{font-size:18px!important;line-height:1.45!important;margin:22px 0 12px!important;border-bottom:1px solid #bbb!important;padding-bottom:4px!important;font-weight:700!important}
-      .xxt-pdf-question{margin:0 0 9px!important;break-inside:auto!important;page-break-inside:auto!important}.xxt-pdf-stem{font-size:15px!important;margin-bottom:3px!important}.xxt-pdf-option{padding-left:25px!important;line-height:1.5!important}.xxt-pdf-answer{margin-top:4px!important;color:#b42318!important;-webkit-text-fill-color:#b42318!important}.xxt-pdf-answer *{color:#b42318!important;-webkit-text-fill-color:#b42318!important}.xxt-pdf-divider{border-top:1px solid #999!important;margin:12px 0!important}
+      .xxt-pdf-question{margin:0 0 9px!important;break-inside:auto!important;page-break-inside:auto!important}.xxt-pdf-stem{font-size:15px!important;margin-bottom:3px!important}.xxt-pdf-option{padding-left:25px!important;line-height:1.5!important}.xxt-pdf-answer{margin-top:4px!important;color:#b42318!important;-webkit-text-fill-color:#b42318!important}.xxt-pdf-answer *{color:#b42318!important;-webkit-text-fill-color:#b42318!important}.xxt-pdf-explanation{margin-top:3px!important;color:#2563eb!important;-webkit-text-fill-color:#2563eb!important;font-size:13px!important;line-height:1.5!important}.xxt-pdf-explanation *{color:#2563eb!important;-webkit-text-fill-color:#2563eb!important}.xxt-pdf-divider{border-top:1px solid #999!important;margin:12px 0!important}
       .xxt-pdf-page img{display:block!important;visibility:visible!important;max-width:100%!important;max-height:360px!important;height:auto!important;margin:6px 0!important;object-fit:contain!important}
-    </style>${buildPdfHTML(results, typeOrder, title, withAnswers, withWrong)}`;
+    </style>${buildPdfHTML(results, typeOrder, title, withAnswers, withWrong, withExplanation)}`;
     holder.appendChild(page);
     document.body.appendChild(holder);
 
@@ -7082,7 +8353,7 @@ Typr["U"] = {
     return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${drawingId}" name="${name}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="${name}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${media.relId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr bwMode="auto"><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
   }
 
-  async function generateNativeDocxBlob(results, typeOrder, title, withAnswers, withWrong, bankImport, markStage) {
+  async function generateNativeDocxBlob(results, typeOrder, title, withAnswers, withWrong, bankImport, markStage, withExplanation = false) {
     const stage = (name, extra = {}) => {
       if (typeof markStage === 'function') markStage(name, extra);
     };
@@ -7266,7 +8537,19 @@ Typr["U"] = {
               children.push(nativeDocxParagraph([
                 nativeDocxTextRun('答案：', { size: 24, bold: true, color: '16A34A' }),
                 ...answerRuns
-              ], { after: 120, leftIndent: answerIndent }));
+              ], { after: withExplanation ? 60 : 120, leftIndent: answerIndent }));
+            }
+
+            // 解析：可选附加，紧跟答案，颜色用蓝色与绿色答案区分。
+            if (withExplanation) {
+              const explanation = questionExplanationText(question);
+              if (explanation) {
+                const answerIndent = (qtype === '单选' || qtype === '多选') ? 500 : 0;
+                children.push(nativeDocxParagraph([
+                  nativeDocxTextRun('解析：', { size: 22, bold: true, color: '2563EB' }),
+                  nativeDocxTextRun(explanation, { size: 22, color: '2563EB' })
+                ], { after: 120, leftIndent: answerIndent }));
+              }
             }
           }
         }
@@ -7372,7 +8655,7 @@ Typr["U"] = {
     return new Blob(chunks, { type: DOCX_MIME });
   }
 
-  async function generateWordBlob(results, typeOrder, title, withAnswers, withWrong, bankImport) {
+  async function generateWordBlob(results, typeOrder, title, withAnswers, withWrong, bankImport, withExplanation = false) {
     const startedAt = Date.now();
     let currentStage = '准备文档';
     const markStage = (stage, extra = {}) => {
@@ -7387,7 +8670,7 @@ Typr["U"] = {
 
     // 原脚本使用 Packer.toBlob(doc)。当前 ScriptCat 注入环境中该 Packer 会卡住，
     // 因此改由上方的标准 OOXML 写入器直接生成同样的原生 .docx 文件。
-    return await generateNativeDocxBlob(results, typeOrder, title, withAnswers, withWrong, bankImport, markStage);
+    return await generateNativeDocxBlob(results, typeOrder, title, withAnswers, withWrong, bankImport, markStage, withExplanation);
 
     // 保留旧的 docx 组装代码作为版式参考；正常流程不会再触及 Packer/JSZip。
     const { Document, Packer, Paragraph, TextRun, ImageRun,
@@ -7780,6 +9063,49 @@ Typr["U"] = {
     return await packDocument(doc);
   }
 
+  // ==================== 批量提取的节奏与限速（全局配置） ====================
+  // 注意：这些常量必须在 createPanel 之前定义。createPanel 里的设置弹窗
+  // 需要读取档位参数来显示说明；若定义在后面，访问 const 会抛 TDZ
+  // ReferenceError，导致面板渲染完却在绑定事件前中断 —— 表现为
+  // “面板能看见，但所有按钮都点不动”。
+  const BATCH_PACING_PROFILES = Object.freeze({
+    // 保守（默认）：适合担心风控、或课程章节很多的场景
+    safe: {
+      label: '保守',
+      navigationGap: [12000, 22000],   // 两次章节跳转之间的间隔
+      navigationSettle: [2500, 4500],   // 跳转后等新页面渲染
+      taskSwitch: [3000, 5500],         // 同一章内切换测验
+      taskCooldown: [2000, 4000],
+      chapterCooldown: [4000, 9000],    // 一章结束后的收尾停顿
+      longRestEvery: [8, 12],           // 每 8~12 章休息一次
+      longRest: [45000, 90000],         // 休息 45~90 秒
+    },
+    // 标准：速度与安全的折中
+    normal: {
+      label: '标准',
+      navigationGap: [7000, 13000],
+      navigationSettle: [2000, 3500],
+      taskSwitch: [2000, 4000],
+      taskCooldown: [1200, 2500],
+      chapterCooldown: [2500, 5000],
+      longRestEvery: [12, 18],
+      longRest: [25000, 50000],
+    },
+    // 快速：仅建议在自建/测试环境使用
+    fast: {
+      label: '快速',
+      navigationGap: [4200, 7000],
+      navigationSettle: [1500, 2500],
+      taskSwitch: [1200, 2200],
+      taskCooldown: [800, 1500],
+      chapterCooldown: [1000, 2200],
+      longRestEvery: [20, 30],
+      longRest: [15000, 25000],
+    }
+  });
+
+  const BATCH_RISK_PATTERN = /403|429|captcha|验证码|请稍后再试|操作过于频繁|访问频繁|toomanyrequests|frequent/i;
+
   // ==================== UI 创建 ====================
   let extractedData = null;
   // null 代表“全部题目”；Set 则保存用户在编辑器中勾选、用于导出/复制/存题库的题目。
@@ -7830,6 +9156,13 @@ Typr["U"] = {
   // 顶层的任务切换监听器也需要知道批量流程是否正在运行。不能把状态只
   // 声明在 createPanel 内，否则外层监听器会在页面切换时抛 ReferenceError。
   let batchExtractionRun = null;
+
+  // createPanel 会在第一行访问 observer，必须在使用前声明。
+  // 之前把它放在文件末尾，导致 createPanel() 一进来就抛
+  // ReferenceError: Cannot access 'observer' before initialization，
+  // 面板能渲染但事件绑定全部中断 —— 所有按钮点不动就是这么来的。
+  let observer = null;
+  let initTimer = null;
 
   function createPanel() {
     if (_creatingPanel) return;
@@ -7925,6 +9258,11 @@ Typr["U"] = {
               <div class="xxt-checkbox-wrap"></div>
               <span>题目乱序</span>
             </label>
+            <label class="xxt-toggle" id="xxt-explanation-toggle">
+              <input type="checkbox" id="xxt-chkExplanation">
+              <div class="xxt-checkbox-wrap"></div>
+              <span>包含解析（AI 或导入时识别的解析）</span>
+            </label>
             <label class="xxt-toggle" id="xxt-bank-import-toggle">
               <input type="checkbox" id="xxt-chkBankImport">
               <div class="xxt-checkbox-wrap"></div>
@@ -7963,6 +9301,7 @@ Typr["U"] = {
       wrongToggle: $('xxt-wrong-toggle'),
       wrongHint: $('xxt-wrong-hint'),
       chkShuffle: $('xxt-chkShuffle'),
+      chkExplanation: $('xxt-chkExplanation'),
       chkBankImport: $('xxt-chkBankImport'),
       bankImportToggle: $('xxt-bank-import-toggle'),
     };
@@ -8006,6 +9345,7 @@ Typr["U"] = {
       if (fmtRadio) fmtRadio.checked = true;
       if (els.chkAnswers) { els.chkAnswers.checked = cfg.withAnswers; }
       if (els.chkShuffle) { els.chkShuffle.checked = cfg.shuffle; }
+      if (els.chkExplanation) { els.chkExplanation.checked = !!cfg.withExplanation; }
       if (els.chkBankImport) { els.chkBankImport.checked = cfg.format === 'word' && !!cfg.bankImport; }
       // 题库导入格式选项仅在 Word 格式下显示。
       if (els.bankImportToggle) els.bankImportToggle.style.display = cfg.format === 'word' ? '' : 'none';
@@ -8052,10 +9392,70 @@ Typr["U"] = {
             <span class="xxt-shortcut-hint" id="xxt-shortcut-hint">点击修改</span>
           </div>
         </div>
+        <div class="xxt-setting-row">
+          <span class="xxt-setting-label">批量提取节奏</span>
+          <div class="xxt-theme-group" id="xxt-pacing-group">
+            <button class="xxt-theme-btn" data-pacing="safe">保守</button>
+            <button class="xxt-theme-btn" data-pacing="normal">标准</button>
+            <button class="xxt-theme-btn" data-pacing="fast">快速</button>
+          </div>
+        </div>
+        <div class="xxt-setting-row xxt-setting-storage">
+          <span class="xxt-setting-label">档位说明</span>
+          <span class="xxt-setting-value" id="xxt-pacing-info">—</span>
+        </div>
+        <div class="xxt-setting-row">
+          <span class="xxt-setting-label">AI 提供商</span>
+          <button type="button" id="xxt-ai-settings-btn" class="xxt-ai-open-btn">配置 OpenAI 兼容接口</button>
+        </div>
+        <div class="xxt-setting-row xxt-setting-storage">
+          <span class="xxt-setting-label">本地存储占用</span>
+          <span class="xxt-setting-value" id="xxt-storage-info">—</span>
+        </div>
       </div>
     `;
     document.body.appendChild(modal);
     enableXxtDragging(modal.querySelector('.xxt-modal-box'), modal.querySelector('.xxt-modal-header'), 'settings');
+
+    // 批量提取节奏档位
+    const pacingBtns = modal.querySelectorAll('[data-pacing]');
+    const pacingInfo = modal.querySelector('#xxt-pacing-info');
+    const updatePacingUI = () => {
+      const current = currentSettings.batchPacing || 'safe';
+      pacingBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.pacing === current));
+      const profile = BATCH_PACING_PROFILES[current] || BATCH_PACING_PROFILES.safe;
+      if (pacingInfo) {
+        pacingInfo.textContent =
+          `每章间隔 ${Math.round(profile.navigationGap[0] / 1000)}~${Math.round(profile.navigationGap[1] / 1000)}s · ` +
+          `每 ${profile.longRestEvery[0]}~${profile.longRestEvery[1]} 章休息 ${Math.round(profile.longRest[0] / 1000)}~${Math.round(profile.longRest[1] / 1000)}s`;
+      }
+    };
+    pacingBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentSettings.batchPacing = btn.dataset.pacing;
+        saveSettings(currentSettings);
+        updatePacingUI();
+      });
+    });
+    updatePacingUI();
+
+    // AI 提供商设置入口（题库区的补答案/纠错审核依赖它）。
+    const aiSettingsBtn = modal.querySelector('#xxt-ai-settings-btn');
+    if (aiSettingsBtn) {
+      aiSettingsBtn.addEventListener('click', () => { openAiSettings(); });
+    }
+
+    // 显示本地存储占用：设置存不进去时，用户能一眼看出是配额问题。
+    const storageInfoEl = modal.querySelector('#xxt-storage-info');
+    const refreshStorageInfo = () => {
+      if (!storageInfoEl) return;
+      const info = describeSettingsStorage();
+      const kb = value => Math.round(value / 1024 * 10) / 10 + ' KB';
+      storageInfoEl.textContent = `设置 ${kb(info.settingsBytes)} · 历史 ${kb(info.historyBytes)}` +
+        (info.error ? ' · 写入失败' : '');
+      storageInfoEl.style.color = info.error ? '#dc2626' : '';
+    };
+    refreshStorageInfo();
 
     // 初始化主题按钮状态
     const themeBtns = modal.querySelectorAll('.xxt-theme-btn');
@@ -8107,38 +9507,39 @@ Typr["U"] = {
 
     // 快捷键录制
     shortcutDisplay.addEventListener('click', () => {
-      shortcutHintEl.textContent = '请按下新快捷键...';
+      shortcutHintEl.textContent = '请按下新快捷键（Esc 取消）';
       shortcutKeysEl.textContent = '...';
       shortcutDisplay.style.borderColor = '#1e88e5';
       window.__xxt_recording = true;
 
+      function finishRecording() {
+        window.__xxt_recording = false;
+        document.removeEventListener('keydown', onKeyDown, true);
+        updateShortcutUI();
+        shortcutHintEl.textContent = '点击修改';
+        shortcutDisplay.style.borderColor = '';
+      }
+
       function onKeyDown(e) {
+        const key = e.key;
+        // 只按修饰键时不要 preventDefault，否则用户连 Esc 都会失效。
+        if (['Control', 'Shift', 'Alt', 'Meta'].includes(key)) return;
+        if (key === 'Escape') { e.preventDefault(); e.stopPropagation(); finishRecording(); return; }
+
         e.preventDefault();
         e.stopPropagation();
-        const key = e.key;
-        if (['Control', 'Shift', 'Alt', 'Meta'].includes(key)) return;
-
         currentSettings.shortcut = {
           ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey, key: key.toLowerCase()
         };
         saveSettings(currentSettings);
-        updateShortcutUI();
-        shortcutHintEl.textContent = '点击修改';
-        shortcutDisplay.style.borderColor = '';
-        window.__xxt_recording = false;
-        document.removeEventListener('keydown', onKeyDown, true);
+        finishRecording();
       }
       document.addEventListener('keydown', onKeyDown, true);
 
+      // 超时自动退出录制，避免监听器与 __xxt_recording 残留导致快捷键全局失效。
       setTimeout(() => {
-        if (window.__xxt_recording) {
-          window.__xxt_recording = false;
-          document.removeEventListener('keydown', onKeyDown, true);
-          updateShortcutUI();
-          shortcutHintEl.textContent = '点击修改';
-          shortcutDisplay.style.borderColor = '';
-        }
-      }, 5000);
+        if (window.__xxt_recording) finishRecording();
+      }, 6000);
     });
 
     // 弹窗打开/关闭
@@ -8714,6 +10115,185 @@ Typr["U"] = {
       return invoked;
     }
 
+    // 学习通在“当前章节还有任务点未完成”时会弹层阻断跳转：弹窗只有
+    // 「去学习 / 下一节」两个按钮，而 PCount.next 同样会被拦住。批量提取
+    // 必须自动点其中的「下一节」，否则整门课提取会永远卡在同一章。
+    //
+    // 踩过的坑：学习通这个弹窗没有 layui / artDialog 之类的稳定 class，
+    // 按类名找必然漏；因此改为「文本锚点 → 反向找最小可见容器」的定位方式，
+    // 不依赖任何类名。
+    const XXT_BLOCKING_LAYER_TEXT = /还有任务点未完成|任务点未完成|是否去完成|尚未完成/;
+    const XXT_BLOCKING_LAYER_IGNORE = /#xxt-panel|#xxt-.*-modal|#xxt-batch-progress-card/;
+
+    // 收集文档内所有「含阻断文案」的可见元素，作为定位锚点。
+    function findBatchBlockingAnchors(doc) {
+      const anchors = [];
+      if (!doc || !doc.body) return anchors;
+      let all = [];
+      try { all = Array.from(doc.body.querySelectorAll('*')); } catch (e) { return anchors; }
+      for (const node of all) {
+        // 只看自己就带文案、且子元素不多的小节点，避免整个 body 被当成锚点。
+        const own = normalizeBatchText(node.textContent || '');
+        if (!own || own.length > 200) continue;
+        if (!XXT_BLOCKING_LAYER_TEXT.test(own)) continue;
+        if (node.children && node.children.length > 0) {
+          // 有子元素时要求文案确实由直接子节点承载，避免选中外层大容器。
+          const childHasText = Array.from(node.children).some(child =>
+            XXT_BLOCKING_LAYER_TEXT.test(normalizeBatchText(child.textContent || '')));
+          if (!childHasText) continue;
+        }
+        anchors.push(node);
+      }
+      return anchors;
+    }
+
+    // 从锚点向上找「同时含“下一节”按钮」的最小可见容器，即弹窗本体。
+    function resolveBatchBlockingDialog(anchor) {
+      let node = anchor;
+      for (let depth = 0; node && depth < 8; depth++, node = node.parentElement) {
+        if (!node || node === node.ownerDocument.body || node === node.ownerDocument.documentElement) break;
+        if (XXT_BLOCKING_LAYER_IGNORE.test(node.id ? '#' + node.id : '') ||
+            (node.closest && node.closest('#xxt-panel, #xxt-batch-progress-card'))) continue;
+        if (!isBatchNodeVisible(node)) continue;
+        const text = normalizeBatchText(node.textContent || '');
+        if (!/下一节/.test(text)) continue;
+        // 太长的容器（比如整个学习页）不是弹窗，直接跳过。
+        if (text.length > 400) continue;
+        return node;
+      }
+      return null;
+    }
+
+    function findBatchBlockingDialog(host) {
+      try {
+        const doc = host && host.document;
+        if (!doc) return null;
+        for (const anchor of findBatchBlockingAnchors(doc)) {
+          const container = resolveBatchBlockingDialog(anchor);
+          if (container) return { container, text: normalizeBatchText(container.textContent || '') };
+        }
+        return null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function isBatchNodeVisible(node) {
+      try {
+        if (!node || !node.getBoundingClientRect) return false;
+        const rect = node.getBoundingClientRect();
+        if (rect.width < 4 || rect.height < 4) return false;
+        const view = node.ownerDocument && node.ownerDocument.defaultView;
+        const style = view && view.getComputedStyle ? view.getComputedStyle(node) : null;
+        if (!style) return true;
+        if (style.display === 'none' || style.visibility === 'hidden') return false;
+        if (Number(style.opacity) === 0) return false;
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    // 在弹窗内找「下一节」按钮。必须排除“去学习”，否则会跳去学视频。
+    function findBatchDialogNextButton(container) {
+      if (!container) return null;
+      let nodes = [];
+      try {
+        nodes = Array.from(container.querySelectorAll('button, a, input[type="button"], input[type="submit"], [role="button"], span, div, label'));
+      } catch (e) { return null; }
+      const matches = nodes.filter(node => {
+        const text = normalizeBatchText(node.textContent || node.value || '');
+        if (!/^下一节$/.test(text)) return false;
+        if (node.children && node.children.length > 0) {
+          // 允许 `<button><span>下一节</span></button>`，但不要选到外层容器。
+          const innerMatch = Array.from(node.children).some(child => /^下一节$/.test(normalizeBatchText(child.textContent || '')));
+          if (!innerMatch) return false;
+        }
+        return isBatchNodeVisible(node);
+      });
+      if (!matches.length) return null;
+      // 取层级最深（最贴近按钮本体）的那个，避免点到包裹层。
+      return matches.sort((a, b) => {
+        const depthOf = node => { let depth = 0, cur = node; while (cur && cur !== container) { depth++; cur = cur.parentElement; } return depth; };
+        return depthOf(b) - depthOf(a);
+      })[0];
+    }
+
+    function clickBatchBlockingDialogNext(host) {
+      const doc = host && host.document;
+      if (!doc) return false;
+      // 守卫：正在处理别的题时不要误触。
+      const dialog = findBatchBlockingDialog(host);
+      if (!dialog) return false;
+      const next = findBatchDialogNextButton(dialog.container);
+      if (next) {
+        try {
+          next.click();
+          appendBatchLog('检测到“任务点未完成”弹层，已自动点“下一节”继续。', 'warn');
+          return true;
+        } catch (e) {}
+      }
+      // 弹窗结构异常时，退化为点同容器内最后一个可点击元素（通常是“下一节”）。
+      try {
+        const lastResort = Array.from(dialog.container.querySelectorAll('button, a, input[type="button"]'))
+          .filter(node => isBatchNodeVisible(node))
+          .filter(node => !/去学习/.test(normalizeBatchText(node.textContent || node.value || '')))
+          .pop();
+        if (lastResort) {
+          lastResort.click();
+          appendBatchLog('弹层结构无法精确识别，已点最后一个按钮（非“去学习”）继续。', 'warn');
+          return true;
+        }
+      } catch (e) {}
+      return false;
+    }
+
+    // 在等待期间持续清理阻断弹层（学习通可能在多个 iframe 里各自弹一次）。
+    async function drainBatchBlockingDialogs(timeout = 2500) {
+      const startedAt = Date.now();
+      let handled = false;
+      while (Date.now() - startedAt < timeout) {
+        let clicked = false;
+        for (const host of getBatchHostWindows()) {
+          if (clickBatchBlockingDialogNext(host)) { clicked = true; handled = true; }
+        }
+        if (!clicked && handled) return true;
+        await batchSleep(220);
+      }
+      return handled;
+    }
+
+    // ==================== 弹层守护（全程常驻） ====================
+    // 批量提取的每个等待点（等页面稳定、等任务卡、等题目、4.2 秒节奏间隔）
+    // 都可能被这个弹窗打断，因此不能只在“点下一节”那一处处理。
+    // 这里用一个常驻定时器兜底：批量运行期间每 900ms 扫一遍所有窗口。
+    let batchDialogGuardTimer = null;
+    let batchDialogGuardCount = 0;
+
+    function startBatchDialogGuard() {
+      if (batchDialogGuardTimer) return;
+      batchDialogGuardCount = 0;
+      batchDialogGuardTimer = setInterval(() => {
+        const run = batchExtractionRun;
+        if (!run || !run.running) { stopBatchDialogGuard(); return; }
+        let clicked = false;
+        for (const host of getBatchHostWindows()) {
+          try { if (clickBatchBlockingDialogNext(host)) clicked = true; } catch (e) {}
+        }
+        if (clicked) {
+          batchDialogGuardCount++;
+          // 连续点很多次说明弹层没被真正关掉，记一条便于排查。
+          if (batchDialogGuardCount % 5 === 0) {
+            appendBatchLog(`“任务点未完成”弹层已连续自动处理 ${batchDialogGuardCount} 次；若仍未见效，可能该章测验确实需要先完成前置任务。`, 'warn');
+          }
+        }
+      }, 900);
+    }
+
+    function stopBatchDialogGuard() {
+      if (batchDialogGuardTimer) { clearInterval(batchDialogGuardTimer); batchDialogGuardTimer = null; }
+    }
+
     function getBatchCurrentChapterId(host) {
       try {
         const input = host && host.document && host.document.querySelector('#curChapterId');
@@ -8744,6 +10324,10 @@ Typr["U"] = {
     async function activateBatchNextTaskPoint(currentEntry, expectedEntry, context) {
       const expectedId = String(expectedEntry && expectedEntry.knowledgeId || '');
       if (!expectedId) return false;
+
+      // 点击前先清一遍残留阻断弹层（上一章可能已经弹过）。
+      await drainBatchBlockingDialogs(600);
+
       let invoked = false;
 
       for (const host of getBatchHostWindows()) {
@@ -8773,10 +10357,26 @@ Typr["U"] = {
         } catch (e) {}
       }
       if (!invoked) return false;
+
+      // 关键修复：点“下一节”后学习通可能弹出“当前章节还有任务点未完成，
+      // 是否去完成？”并停下；这里在等待跳转期间持续检测并自动点弹层里的
+      // “下一节”，让未完成的任务点也能自动跳过。
       const startedAt = Date.now();
-      while (Date.now() - startedAt < 7000) {
+      let handledDialog = false;
+      while (Date.now() - startedAt < 9000) {
         if (findBatchActiveCatalog(expectedEntry) || getBatchHostWindows().some(host => getBatchCurrentChapterId(host) === expectedId)) return true;
+        let clickedDialog = false;
+        for (const host of getBatchHostWindows()) {
+          if (clickBatchBlockingDialogNext(host)) { clickedDialog = true; handledDialog = true; }
+        }
+        if (clickedDialog) {
+          // 弹层点完后给学习通一次发起跳转的时间，不直接判定失败。
+          await batchSleep(400);
+        }
         await batchSleep(180);
+      }
+      if (handledDialog) {
+        appendBatchLog('已自动跳过“任务点未完成”提示，但章节跳转仍未完成，将回退到目录原生导航。', 'warn');
       }
       return false;
     }
@@ -8978,6 +10578,10 @@ Typr["U"] = {
       const startedAt = Date.now();
       await waitForBatchTaskPointActive(entry);
       while (Date.now() - startedAt < timeout) {
+        // 读任务卡前先确认没有被“任务点未完成”弹层挡住。
+        for (const host of getBatchHostWindows()) {
+          try { clickBatchBlockingDialogNext(host); } catch (e) {}
+        }
         const tabs = getBatchNativeTaskTabs(entry);
         if (tabs.length) {
           const testTabs = tabs.filter(isBatchChapterTestTab);
@@ -9131,36 +10735,116 @@ Typr["U"] = {
       renderBatchEntries();
     }
 
-    // 批量切换采用固定、保守的节奏：先确认上一页已经完成，再让新页面有
-    // 充足时间渲染。这里不伪造用户操作，也不会绕过页面验证码或其他限制。
-    const BATCH_PACING = Object.freeze({
-      minNavigationGapMs: 4200,
-      navigationSettleMs: 1800,
-      taskSwitchSettleMs: 1200,
-      taskCooldownMs: 800,
-      chapterCooldownMs: 1000,
-      checkIntervalMs: 200
-    });
+    // ==================== 批量提取的节奏与限速 ====================
+    // 设计原则（针对学校/平台的风控）：
+    // 1) 不用固定间隔。固定间隔本身是最明显的机器特征，所有等待都加随机抖动。
+    // 2) 默认采用保守档位，每章之间留出足够「像人在看题」的时间。
+    // 3) 每处理若干章插入一次长休息（相当于人离开一下），避免持续高频。
+    // 4) 失败会触发指数退避，遇到 403/429 等风控信号直接自动暂停。
+    // 5) 页面不可见（切到别的标签/最小化）时自动延长等待，不后台刷请求。
+    // 节奏档位常量已提前到文件前部定义（createPanel 里也要用到，
+    // 放在这里会因为 TDZ 让面板初始化抛错，导致所有按钮点不动）。
 
     function batchSleep(ms) {
       return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // 在 [min,max] 之间取随机值。固定值会被风控当成脚本，必须抖动。
+    function batchRandomBetween(range) {
+      const min = Math.max(0, Number(range && range[0]) || 0);
+      const max = Math.max(min, Number(range && range[1]) || min);
+      return Math.round(min + Math.random() * (max - min));
+    }
+
+    function currentBatchProfile() {
+      const key = (currentSettings.batchPacing && BATCH_PACING_PROFILES[currentSettings.batchPacing])
+        ? currentSettings.batchPacing : 'safe';
+      return { key, ...BATCH_PACING_PROFILES[key] };
+    }
+
+    // 页面不可见时，把等待时长放大到 1.5~3 倍：切走标签页说明用户没在看，
+    // 此时高频请求最容易触发风控。
+    function batchVisibilityMultiplier() {
+      try {
+        if (document.hidden) return 1.5 + Math.random() * 1.5;
+      } catch (e) {}
+      return 1;
+    }
+
+    // 全局最小跳转间隔：无论档位怎么调、单次抽到多小的值，
+    // 两次真实跳转之间都不会低于这个硬下限，避免误配置导致高频。
+    const BATCH_HARD_MIN_GAP_MS = 6000;
+
+    // 统一的等待入口，替代原先直接 waitForBatchRun(run, 固定值)。
+    async function batchPause(run, range, options = {}) {
+      const profile = currentBatchProfile();
+      let duration = batchRandomBetween(range);
+      duration = Math.round(duration * batchVisibilityMultiplier());
+      // 失败越多越慢（指数退避上限 4 倍）。run.failStreak 由失败分支累加。
+      const streak = Math.max(0, Number(run && run.failStreak) || 0);
+      if (options.applyBackoff !== false && streak > 0) {
+        duration = Math.round(duration * Math.min(4, Math.pow(1.8, streak)));
+      }
+      return waitForBatchRun(run, duration);
     }
 
     async function waitForBatchRun(run, duration) {
       const deadline = Date.now() + Math.max(0, Number(duration) || 0);
       while (Date.now() < deadline) {
         if (run && (run.stopped || !batchExtractionRun || batchExtractionRun.id !== run.id)) return false;
-        await batchSleep(Math.min(BATCH_PACING.checkIntervalMs, Math.max(1, deadline - Date.now())));
+        // 等待期间也可能被“任务点未完成”弹层拦住，每次轮询顺手清一下。
+        for (const host of getBatchHostWindows()) {
+          try { clickBatchBlockingDialogNext(host); } catch (e) {}
+        }
+        await batchSleep(Math.min(200, Math.max(1, deadline - Date.now())));
       }
       return !(run && (run.stopped || !batchExtractionRun || batchExtractionRun.id !== run.id));
     }
 
+    // 两次章节跳转之间的限速。目标间隔取随机区间（不是固定值），
+    // 若本次运行已经积累了失败，会自动拉长。
     async function waitForBatchNavigationGap(run) {
-      const lastNavigationAt = Number(run && run.lastNavigationAt || 0);
-      const remaining = Math.max(0, BATCH_PACING.minNavigationGapMs - (Date.now() - lastNavigationAt));
-      if (remaining < 80) return !(run && run.stopped);
-      appendBatchLog(`等待页面稳定：将在约 ${Math.ceil(remaining / 1000)} 秒后进入下一节。`);
-      return waitForBatchRun(run, remaining);
+      if (!run) return false;
+      if (run.stopped) return false;
+      const profile = currentBatchProfile();
+      // 每章开始时重新抽一次目标间隔，保证节奏不规律。
+      if (!run.nextNavGapMs) run.nextNavGapMs = batchRandomBetween(profile.navigationGap);
+      const lastNavigationAt = Number(run.lastNavigationAt || 0);
+      const elapsed = Date.now() - lastNavigationAt;
+      let remaining = 0;
+      if (lastNavigationAt) {
+        // 硬下限保护：抽到的间隔不得低于全局最小值。
+        const target = Math.max(BATCH_HARD_MIN_GAP_MS, run.nextNavGapMs);
+        remaining = Math.max(0, target - elapsed);
+      } else {
+        // 首次跳转也留一点起步延迟。
+        remaining = batchRandomBetween([2000, 4000]);
+      }
+      if (remaining < 80) return true;
+      const seconds = Math.ceil(remaining / 1000);
+      appendBatchLog(`限速中：约 ${seconds} 秒后进入下一节（第 ${(run.chapterIndex || 0) + 1} 章）。`);
+      const ok = await waitForBatchRun(run, remaining);
+      run.nextNavGapMs = 0;   // 用掉后下次重新抽
+      return ok;
+    }
+
+    // 长休息：每处理若干章插入一次，避免长时间高频。
+    async function maybeBatchLongRest(run, chapterIndex) {
+      if (!run || run.stopped) return false;
+      const profile = currentBatchProfile();
+      if (!run.longRestEveryCount) run.longRestEveryCount = batchRandomBetween(profile.longRestEvery);
+      run.chapterIndex = chapterIndex;
+      if (!chapterIndex || chapterIndex % run.longRestEveryCount !== 0) return true;
+      const duration = batchRandomBetween(profile.longRest);
+      appendBatchLog(`已连续处理 ${chapterIndex} 章，长休息 ${Math.ceil(duration / 1000)} 秒（模拟人工停顿，降低风控概率）。`, 'warn');
+      updateBatchProgress(
+        `长休息中（${Math.ceil(duration / 1000)} 秒）`,
+        `已连续提取 ${chapterIndex} 章，稍作停顿后自动继续。可随时点“暂停提取”。`,
+        chapterIndex, (run.selectedTaskPoints || []).length
+      );
+      const ok = await waitForBatchRun(run, duration);
+      run.longRestEveryCount = batchRandomBetween(profile.longRestEvery);
+      return ok;
     }
 
     function currentBatchQuestionSignature() {
@@ -9388,6 +11072,10 @@ Typr["U"] = {
       let nextRequestAt = 0;
       while (Date.now() - startedAt < timeout) {
         if (!batchExtractionRun || batchExtractionRun.id !== run.id || run.stopped) return emptyExtractResult();
+        // 取题前也清一次弹层，避免题目页被遮住导致读不到题目。
+        for (const host of getBatchHostWindows()) {
+          try { clickBatchBlockingDialogNext(host); } catch (e) {}
+        }
         if (!run.activeFrame && run.activeTask) run.activeFrame = findBatchTaskFrame(run.activeTask);
         const direct = run.activeFrame
           ? await extractFromBatchTaskFrame(run.activeFrame)
@@ -9429,6 +11117,7 @@ Typr["U"] = {
     function stopBatchExtraction() {
       if (batchExtractionRun && batchExtractionRun.running) {
         batchExtractionRun.stopped = true;
+        stopBatchDialogGuard();
         batchStopButton.disabled = true;
         appendBatchLog(`已请求暂停：当前已完成 ${batchExtractionRun.completed} 个章节测验，累计 ${batchQuestionCount(batchExtractionRun)} 题。`, 'warn');
         updateBatchProgress('正在暂停提取…', `已完成 ${batchExtractionRun.completed} 个测验，累计 ${batchQuestionCount(batchExtractionRun)} 题；当前任务会尽快安全停下。`, batchExtractionRun.nextIndex || 0, (batchExtractionRun.selectedTaskPoints || []).length);
@@ -9464,6 +11153,11 @@ Typr["U"] = {
         run.stopped = false;
         run.activeFrame = null;
         run.activeTask = null;
+        // 继续时重置限速相关状态：长休息重新计数、退避清零，
+        // 并给一段「继续后的缓冲停顿」，避免刚被风控暂停就立刻猛冲。
+        run.failStreak = 0;
+        run.nextNavGapMs = 0;
+        run.longRestEveryCount = 0;
       } else {
         selectedTaskPoints = batchEntries.filter(entry => entry.selected);
         run = {
@@ -9476,6 +11170,7 @@ Typr["U"] = {
       if (!selectedTaskPoints.length) return;
       run.selectedTaskPoints = selectedTaskPoints;
       run.nextIndex = startIndex;
+      run.chapterIndex = startIndex;
       batchExtractionRun = run;
       if (!Array.isArray(run.logs)) run.logs = [];
       appendBatchLog(
@@ -9483,7 +11178,13 @@ Typr["U"] = {
           ? `继续提取：将从第 ${startIndex + 1} / ${selectedTaskPoints.length} 章恢复。`
           : `开始提取：已选择 ${selectedTaskPoints.length} 个课程任务点。`
       );
-      appendBatchLog(`保守节奏已开启：每次章节切换至少间隔 ${Math.round(BATCH_PACING.minNavigationGapMs / 1000)} 秒，确认切换后再额外等待页面稳定。`);
+      {
+        const profile = currentBatchProfile();
+        appendBatchLog(
+          `限速已开启（${profile.label}档）：每次章节切换间隔 ${Math.round(profile.navigationGap[0] / 1000)}~${Math.round(profile.navigationGap[1] / 1000)} 秒，` +
+          `每 ${profile.longRestEvery[0]}~${profile.longRestEvery[1]} 章长休息一次。可在“设置”里调整节奏档位。`
+        );
+      }
       els.btnBatchExtract.disabled = true;
       els.btnExtract.disabled = true;
       batchStopButton.classList.remove('xxt-hidden');
@@ -9492,6 +11193,9 @@ Typr["U"] = {
       batchStartButton.disabled = true;
       batchModal.classList.remove('open');
       showBatchProgressCard();
+      // 全程守护：批量运行期间每 900ms 自动关掉“任务点未完成”弹层，
+      // 不依赖具体卡在哪个等待点（等页面稳定/等任务卡/等题目/节奏间隔）。
+      startBatchDialogGuard();
       updateBatchProgress(
         shouldResume ? `继续提取：从第 ${startIndex + 1} / ${selectedTaskPoints.length} 章开始` : `正在读取 ${selectedTaskPoints.length} 个任务点…`,
         `已完成 ${run.completed} 个测验，累计 ${batchQuestionCount(run)} 题；视频等非测验任务会自动跳过。`,
@@ -9502,6 +11206,8 @@ Typr["U"] = {
       const context = getBatchCourseContext();
       for (let index = startIndex; index < selectedTaskPoints.length; index++) {
         if (run.stopped) break;
+        // 长休息：每若干章插入一次人工停顿，降低风控概率。
+        if (!await maybeBatchLongRest(run, index)) break;
         const entry = selectedTaskPoints[index];
         run.nextIndex = index;
         entry.state = 'current'; entry.detail = `正在按 knowledgeId ${entry.knowledgeId} 跳转任务点…`;
@@ -9524,12 +11230,19 @@ Typr["U"] = {
           if (!reached) {
             // 原生“下一节”不可用或未响应时，再用目录自己的导航函数回退；
             // 同样记录一次切换时间，避免连续触发课程页请求。
+            // 进入前先清一遍“任务点未完成”弹层，否则它会在 reload 后再次拦住跳转。
+            await drainBatchBlockingDialogs(800);
             run.lastNavigationAt = Date.now();
             reached = await activateBatchTaskPoint(entry, context);
+            if (reached) {
+              await waitForBatchTaskPointActive(entry, 4000);
+              // 目录导航后也可能弹层，再清一次。
+              await drainBatchBlockingDialogs(800);
+            }
           }
           if (!reached) throw new Error('无法通过课程原生导航进入该任务点');
           appendBatchLog(`第 ${index + 1} 章：已发出章节切换，正在等待页面稳定。`);
-          if (!await waitForBatchRun(run, BATCH_PACING.navigationSettleMs)) break;
+          if (!await batchPause(run, currentBatchProfile().navigationSettle)) break;
           const tasks = await resolveBatchTaskPointTasks(entry);
           if (!tasks.length) {
             entry.state = 'failed'; entry.detail = '已跳转到任务点，但未发现章节测验任务'; run.failed++; run.noTasks = true;
@@ -9561,7 +11274,7 @@ Typr["U"] = {
               window.__xxt_iframe_data = null;
               window.__xxt_iframe_context = null;
               await navigateBatchVisibleTask(run, task);
-              if (!await waitForBatchRun(run, BATCH_PACING.taskSwitchSettleMs)) break;
+              if (!await batchPause(run, currentBatchProfile().taskSwitch)) break;
               source = await waitForBatchVisibleQuestions(run, previousSignature, previousMessageAt);
               if (run.stopped) break;
               if (!hasQuestions(source)) {
@@ -9583,7 +11296,7 @@ Typr["U"] = {
               }
               renderBatchEntries();
               if (!run.stopped && taskIndex < tasks.length - 1) {
-                if (!await waitForBatchRun(run, BATCH_PACING.taskCooldownMs)) break;
+                if (!await batchPause(run, currentBatchProfile().taskCooldown)) break;
               }
             }
             if (run.stopped) {
@@ -9594,24 +11307,46 @@ Typr["U"] = {
               entry.state = 'done';
               run.taskPointsCompleted++;
               run.nextIndex = index + 1;
+              run.failStreak = 0;   // 成功即重置退避
               appendBatchLog(`第 ${index + 1} 章：该章章节测验处理完成。`);
             }
           }
         } catch (error) {
-          entry.state = 'failed'; entry.detail = `任务点提取失败：${error && error.message ? error.message : error}`; run.failed++;
+          const reason = error && error.message ? error.message : String(error || '');
+          entry.state = 'failed'; entry.detail = `任务点提取失败：${reason}`; run.failed++;
           run.nextIndex = index + 1;
-          appendBatchLog(`第 ${index + 1} 章：提取异常，已跳过。${error && error.message ? `原因：${error.message}` : ''}`, 'error');
+          run.failStreak = (run.failStreak || 0) + 1;
+
+          // 风控信号：这类错误继续跑只会加重问题，直接暂停并提示用户。
+          if (BATCH_RISK_PATTERN.test(reason)) {
+            run.running = false;
+            run.stopped = true;
+            batchPausedRun = run;
+            stopBatchDialogGuard();
+            appendBatchLog(
+              `检测到可能的风控信号（第 ${index + 1} 章）：${reason}。已自动暂停，建议等待 10~30 分钟后再继续，或改用更慢的节奏档位。`,
+              'error'
+            );
+            batchStopButton.classList.add('xxt-hidden');
+            els.btnBatchExtract.disabled = false;
+            els.btnExtract.disabled = false;
+            showStatus(els, '检测到风控信号已自动暂停，请稍后手动继续', 'err');
+            break;
+          }
+
+          appendBatchLog(`第 ${index + 1} 章：提取异常，已跳过。${reason ? `原因：${reason}` : ''}`, 'error');
           updateBatchProgress(`第 ${index + 1} / ${selectedTaskPoints.length} 章未完成`, `${entry.label} · 已跳过并继续；总计已完成 ${run.completed} 个测验、${batchQuestionCount(run)} 题。`, index + 1, selectedTaskPoints.length);
         }
         clearBatchVisibleTask(run);
         run.activeTask = null;
         renderBatchEntries();
         if (!run.stopped && index < selectedTaskPoints.length - 1) {
-          if (!await waitForBatchRun(run, BATCH_PACING.chapterCooldownMs)) break;
+          if (!await batchPause(run, currentBatchProfile().chapterCooldown)) break;
         }
       }
 
       run.running = false;
+      stopBatchDialogGuard();
       clearBatchVisibleTask(run);
       batchStopButton.classList.add('xxt-hidden');
       els.btnBatchExtract.disabled = false;
@@ -9709,15 +11444,49 @@ Typr["U"] = {
           <button class="xxt-bank-btn" id="xxt-bank-load">载入到当前面板</button>
           <button class="xxt-bank-btn" id="xxt-bank-save-current">存入当前题目</button>
           <button class="xxt-bank-btn" id="xxt-bank-add-question">手动添加题目</button>
-          <button class="xxt-bank-btn" id="xxt-bank-export-word">导出 Word</button>
-          <button class="xxt-bank-btn" id="xxt-bank-export-txt">导出 TXT</button>
-          <button class="xxt-bank-btn" id="xxt-bank-export-md">导出 MD</button>
-          <button class="xxt-bank-btn" id="xxt-bank-export-pdf">导出 PDF</button>
-          <button class="xxt-bank-btn" id="xxt-bank-import">导入 JSON</button>
+          <button class="xxt-bank-btn" id="xxt-bank-export">导出题库</button>
+          <button class="xxt-bank-btn" id="xxt-bank-import">导入题库</button>
           <button class="xxt-bank-btn xxt-danger" id="xxt-bank-clear">清空当前库</button>
-          <input id="xxt-bank-file" type="file" accept=".json,application/json" style="display:none">
+          <input id="xxt-bank-file" type="file" accept=".json,.txt,.md,.markdown,.docx,.pdf,application/json,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf" style="display:none">
         </div>
         <div class="xxt-bank-search"><input id="xxt-bank-search-input" type="text" placeholder="搜索当前题库的题干、选项或答案"><button class="xxt-bank-btn" id="xxt-bank-search-btn">检索</button></div>
+        <div class="xxt-bank-ai" id="xxt-bank-ai">
+          <div class="xxt-bank-ai-head">
+            <span class="xxt-bank-ai-title">✦ AI 补答案 / 纠错审核</span>
+            <span class="xxt-bank-ai-state" id="xxt-bank-ai-state"></span>
+          </div>
+          <div class="xxt-bank-ai-actions" id="xxt-bank-ai-actions">
+            <button type="button" data-ai-action="fill-missing">一键补充无答案题</button>
+            <button type="button" data-ai-action="fill-explanation">一键补全解析</button>
+            <button type="button" data-ai-action="review-all">一键审核全部题目</button>
+            <button type="button" data-ai-action="fix-selected">处理勾选题目</button>
+            <button type="button" data-ai-action="stop" disabled>停止</button>
+            <button type="button" data-ai-action="settings">AI 设置</button>
+          </div>
+          <div class="xxt-bank-ai-progress" id="xxt-bank-ai-progress" hidden></div>
+          <div class="xxt-bank-ai-bar" id="xxt-bank-ai-bar" hidden><i></i></div>
+        </div>
+        <div class="xxt-bank-filters" id="xxt-bank-filters">
+          <select id="xxt-bank-type-filter" aria-label="按题型筛选">
+            <option value="">全部题型</option>
+            <option value="单选">单选题</option>
+            <option value="多选">多选题</option>
+            <option value="填空">填空题</option>
+            <option value="判断">判断题</option>
+            <option value="简答">简答题</option>
+          </select>
+          <select id="xxt-bank-status-filter" aria-label="按状态筛选">
+            <option value="">全部状态</option>
+            <option value="missing">无答案</option>
+            <option value="no-explanation">无解析</option>
+            <option value="ai">AI 答案</option>
+            <option value="low">低置信度</option>
+          </select>
+          <button type="button" id="xxt-bank-select-all">全选当前页</button>
+          <button type="button" id="xxt-bank-select-none">取消选择</button>
+          <button type="button" id="xxt-bank-select-missing">选中所有无答案</button>
+          <span class="xxt-bank-filter-count" id="xxt-bank-filter-count"></span>
+        </div>
         <div class="xxt-bank-list" id="xxt-bank-list"></div>
         <div class="xxt-bank-compare">
           <button class="xxt-bank-btn" id="xxt-bank-compare-btn">将当前页面与题库对比</button>
@@ -9780,11 +11549,23 @@ Typr["U"] = {
     const bankList = bankModal.querySelector('#xxt-bank-list');
     const bankSearchInput = bankModal.querySelector('#xxt-bank-search-input');
     const bankCompareStatus = bankModal.querySelector('#xxt-bank-compare-status');
+    const bankTypeFilter = bankModal.querySelector('#xxt-bank-type-filter');
+    const bankStatusFilter = bankModal.querySelector('#xxt-bank-status-filter');
+    const bankFilterCount = bankModal.querySelector('#xxt-bank-filter-count');
+    const bankAiState = bankModal.querySelector('#xxt-bank-ai-state');
+    const bankAiProgress = bankModal.querySelector('#xxt-bank-ai-progress');
+    const bankAiBar = bankModal.querySelector('#xxt-bank-ai-bar');
     const BANK_PAGE_SIZE = 20;
     let bankSearchText = '';
     let bankCurrentPage = 1;
     let saveBankMode = 'existing';
+    // 题库句柄使用「type\u0001index」稳定标识，筛选项变化后勾选不会错位。
+    const bankSelectedKeys = new Set();
     const bankTypeLabels = { '单选': '单选题', '多选': '多选题', '填空': '填空题', '判断': '判断题', '简答': '简答题' };
+
+    function bankQuestionKey(type, index) {
+      return `${type}\u0001${index}`;
+    }
 
     function downloadQuestionBankFile(blob, filename) {
       const url = URL.createObjectURL(blob);
@@ -9794,28 +11575,53 @@ Typr["U"] = {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
-    async function exportActiveQuestionBank(format, button) {
+    async function exportActiveQuestionBank(format, button, options = {}) {
+      // 按钮可能因事件失效为 null，这里统一兜底，避免导出时抛错。
+      const actionButton = button && button.textContent !== undefined ? button : null;
       const bank = getActiveQuestionBank();
       if (!bank || !bankQuestionCount(bank)) {
         showStatus(els, '当前题库为空，暂无可导出的题目', 'warn');
         return;
       }
 
-      const originalText = button.textContent;
+      // JSON 是备份格式：导出完整题库结构（含多题库、题型顺序、AI 标注）。
+      if (format === 'json') {
+        const state = loadQuestionBankState(true);
+        const payload = {
+          schemaVersion: 1,
+          exportedAt: new Date().toISOString(),
+          activeBankId: state.activeBankId,
+          banks: state.banks
+        };
+        const baseName = String(bank.name || '学习通题库').replace(/[\\/:*?"<>|]/g, '_').substring(0, 60) || '学习通题库';
+        downloadQuestionBankFile(
+          new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' }),
+          `${baseName}-题库备份.json`
+        );
+        showStatus(els, `已导出 JSON 备份：${state.banks.length} 个题库，共 ${state.banks.reduce((sum, item) => sum + bankQuestionCount(item), 0)} 道题`, 'ok');
+        return;
+      }
+
+      const originalText = actionButton ? actionButton.textContent : '';
       const startedAt = Date.now();
       let progressTimer = null;
-      button.disabled = true;
-      button.textContent = format === 'pdf' ? '生成中...' : '导出中...';
+      if (actionButton) {
+        actionButton.disabled = true;
+        actionButton.textContent = format === 'pdf' ? '生成中...' : '导出中...';
+      }
       try {
         const data = buildExtractedDataFromBank(bank);
         const isBankImport = format === 'word' && !!(els.chkBankImport && els.chkBankImport.checked);
-        const withAnswers = !!data.hasCorrectAnswer && !!(els.chkAnswers && els.chkAnswers.checked);
+        const withAnswers = options.withAnswers != null
+          ? !!options.withAnswers
+          : (!!data.hasCorrectAnswer && !!(els.chkAnswers && els.chkAnswers.checked));
+        const withExplanation = !!options.withExplanation;
         const doShuffle = !isBankImport && !!(els.chkShuffle && els.chkShuffle.checked);
         const activeResults = doShuffle ? shuffleQuestions(data.results, data.typeOrder) : data.results;
         const baseFilename = String(bank.name || '学习通题库').replace(/[\\/:*?"<>|]/g, '_').substring(0, 60) || '学习通题库';
 
         if (format === 'pdf') {
-          await generatePdf(activeResults, data.typeOrder, data.title, withAnswers, false, `${baseFilename}.pdf`);
+          await generatePdf(activeResults, data.typeOrder, data.title, withAnswers, false, `${baseFilename}.pdf`, withExplanation);
           addToHistory(data, 'pdf', withAnswers, false, doShuffle, false, '');
           showStatus(els, '题库 PDF 已下载', 'ok');
           return;
@@ -9824,14 +11630,14 @@ Typr["U"] = {
         if (format === 'word') {
           window.__xxt_failed_image_count = 0;
           // 题库和当前页统一导出原生 .docx，计时只反映真实的 DOCX 打包过程。
-          button.textContent = '生成 Word（' + data.total + ' 题）...';
+          if (actionButton) actionButton.textContent = '生成 Word（' + data.total + ' 题）...';
           progressTimer = setInterval(() => {
             const seconds = Math.max(1, Math.floor((Date.now() - startedAt) / 1000));
-            button.textContent = '生成 Word（' + data.total + ' 题，' + seconds + 's）...';
+            if (actionButton) actionButton.textContent = '生成 Word（' + data.total + ' 题，' + seconds + 's）...';
           }, 1000);
           const blob = await generateWordBlob(
             activeResults, data.typeOrder, data.title,
-            isBankImport || withAnswers, false, isBankImport
+            isBankImport || withAnswers, false, isBankImport, withExplanation
           );
           if (!(blob instanceof Blob) || blob.size < 100) throw new Error('Word 文档生成结果无效，请重试');
           downloadQuestionBankFile(blob, `${baseFilename}.docx`);
@@ -9843,8 +11649,8 @@ Typr["U"] = {
 
         const isMarkdown = format === 'md';
         const text = withAnswers
-          ? (isMarkdown ? formatOutputWithAnswersMD(activeResults, data.typeOrder) : formatOutputWithAnswers(activeResults, data.typeOrder))
-          : (isMarkdown ? formatOutputMD(activeResults, data.typeOrder) : formatOutput(activeResults, data.typeOrder));
+          ? (isMarkdown ? formatOutputWithAnswersMD(activeResults, data.typeOrder, withExplanation) : formatOutputWithAnswers(activeResults, data.typeOrder, withExplanation))
+          : (isMarkdown ? formatOutputMD(activeResults, data.typeOrder, false, withExplanation) : formatOutput(activeResults, data.typeOrder, false, withExplanation));
         downloadQuestionBankFile(
           new Blob([text], { type: isMarkdown ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8' }),
           `${baseFilename}.${isMarkdown ? 'md' : 'txt'}`
@@ -9855,8 +11661,10 @@ Typr["U"] = {
         showStatus(els, `题库导出失败：${error && error.message ? error.message : error}`, 'err');
       } finally {
         if (progressTimer) clearInterval(progressTimer);
-        button.disabled = false;
-        button.textContent = originalText;
+        if (actionButton) {
+          actionButton.disabled = false;
+          actionButton.textContent = originalText;
+        }
       }
     }
 
@@ -9975,38 +11783,109 @@ Typr["U"] = {
         ? '<div class="xxt-bank-options"><div class="xxt-bank-options-label">选项</div>' + optionRows + '</div>'
         : '<div class="xxt-bank-no-options">本题没有可选项</div>';
       const meta = options.length ? options.length + ' 个选项' : '无选项';
-      return '<article class="xxt-bank-card" data-bank-type="' + escapeHtml(type) + '" data-bank-index="' + index + '">' +
-        '<div class="xxt-bank-card-head"><span class="xxt-bank-card-number">第 ' + (index + 1) + ' 题</span><span class="xxt-bank-card-meta">' + meta + '</span></div>' +
+
+      const badges = [];
+      const hasAnswer = !!String(answer || '').trim();
+      if (!hasAnswer) badges.push('<span class="xxt-bank-badge xxt-bank-badge-missing">无答案</span>');
+      if (question.answerSource === 'ai') {
+        const confidence = Number(question.aiConfidence);
+        const label = Number.isFinite(confidence) && confidence > 0 ? `AI ${Math.round(confidence * 100)}%` : 'AI';
+        badges.push(`<span class="xxt-bank-badge ${Number.isFinite(confidence) && confidence > 0 && confidence < 0.6 ? 'xxt-bank-badge-low' : 'xxt-bank-badge-ai'}">${escapeHtml(label)}</span>`);
+      }
+      const badgeBlock = badges.length ? badges.join('') : '';
+
+      const key = bankQuestionKey(type, index);
+      const selected = bankSelectedKeys.has(key);
+      const explanation = String(question.explanation || '').trim();
+      const explanationBlock = explanation
+        ? '<div class="xxt-bank-explanation">解析：' + bankTextToHtml(explanation, '') + '</div>'
+        : '';
+
+      return '<article class="xxt-bank-card' + (selected ? ' xxt-bank-card-selected' : '') + '" data-bank-type="' + xxtEscapeAttr(type) + '" data-bank-index="' + index + '">' +
+        '<div class="xxt-bank-card-head">' +
+          '<div class="xxt-bank-card-head-left">' +
+            '<input type="checkbox" class="xxt-bank-check' + (selected ? ' xxt-check-on' : '') + '" data-bank-check="1"' + (selected ? ' checked' : '') + ' title="勾选后可批量处理">' +
+            '<span class="xxt-bank-card-number">第 ' + (index + 1) + ' 题</span>' +
+            badgeBlock +
+          '</div>' +
+          '<span class="xxt-bank-card-meta">' + meta + '</span>' +
+        '</div>' +
         '<div class="xxt-bank-question-stem">' + bankTextToHtml(stem, '题干内容为空') + '</div>' +
         optionBlock +
         '<div class="xxt-bank-answer"><span class="xxt-bank-answer-label">答案</span><span class="xxt-bank-answer-value">' + bankTextToHtml(answer, '未提取到答案') + '</span></div>' +
-        '<div class="xxt-bank-card-actions"><button data-bank-action="edit">编辑</button><button data-bank-action="load">载入本题</button><button data-bank-action="delete" class="xxt-danger">删除</button></div>' +
+        explanationBlock +
+        '<div class="xxt-bank-card-actions">' +
+          '<button data-bank-action="ai">AI 补答案</button>' +
+          '<button data-bank-action="ai-explain">' + (explanation ? 'AI 重写解析' : 'AI 补解析') + '</button>' +
+          '<button data-bank-action="edit">编辑</button>' +
+          '<button data-bank-action="load">载入本题</button>' +
+          '<button data-bank-action="delete" class="xxt-danger">删除</button>' +
+        '</div>' +
         '</article>';
+    }
+
+    // 当前筛选条件（关键词 / 题型 / 状态）下匹配的题目列表，AI 批处理也用它。
+    function collectBankRows(active) {
+      const bank = active || getActiveQuestionBank();
+      if (!bank) return [];
+      const query = bankSearchText.trim().toLowerCase();
+      const typeFilter = bankTypeFilter ? bankTypeFilter.value : '';
+      const statusFilter = bankStatusFilter ? bankStatusFilter.value : '';
+      const rows = [];
+      QUESTION_BANK_TYPES.forEach(type => {
+        if (typeFilter && typeFilter !== type) return;
+        (bank.results[type] || []).forEach((question, index) => {
+          const searchable = [richTextOnly(questionContent(question)), ...(question.options || []).map(option => richTextOnly(optionContent(option))), richTextOnly(answerContent(question))].join(' ').toLowerCase();
+          if (query && !searchable.includes(query)) return;
+          const hasAnswer = !!String(richTextOnly(answerContent(question)) || '').trim();
+          if (statusFilter === 'missing' && hasAnswer) return;
+          if (statusFilter === 'no-explanation' && String(question.explanation || '').trim()) return;
+          if (statusFilter === 'ai' && question.answerSource !== 'ai') return;
+          if (statusFilter === 'low') {
+            const confidence = Number(question.aiConfidence);
+            if (question.answerSource !== 'ai' || !(confidence > 0) || confidence >= 0.6) return;
+          }
+          rows.push({ type, question, index, hasAnswer });
+        });
+      });
+      return rows;
+    }
+
+    function updateBankFilterCount(rows) {
+      if (!bankFilterCount) return;
+      const list = Array.isArray(rows) ? rows : collectBankRows();
+      const missing = list.filter(row => !row.hasAnswer).length;
+      const noExplanation = list.filter(row => !String(row.question && row.question.explanation || '').trim()).length;
+      const parts = [`共 ${list.length} 题`];
+      if (missing) parts.push(`无答案 ${missing}`);
+      if (noExplanation) parts.push(`无解析 ${noExplanation}`);
+      parts.push(`已勾选 ${bankSelectedKeys.size}`);
+      bankFilterCount.textContent = parts.join(' · ');
     }
 
     function renderBankList() {
       const active = getActiveQuestionBank();
-      if (!active) { bankList.innerHTML = '<div class="xxt-bank-empty">暂无题库</div>'; return; }
-      const query = bankSearchText.trim().toLowerCase();
-      const rows = [];
-      const matchedTypeCounts = Object.fromEntries(QUESTION_BANK_TYPES.map(type => [type, 0]));
-      QUESTION_BANK_TYPES.forEach(type => {
-        (active.results[type] || []).forEach((question, index) => {
-          const searchable = [richTextOnly(questionContent(question)), ...(question.options || []).map(option => richTextOnly(optionContent(option))), richTextOnly(answerContent(question))].join(' ').toLowerCase();
-          if (query && !searchable.includes(query)) return;
-          matchedTypeCounts[type]++;
-          rows.push({ type, question, index });
-        });
-      });
-      if (!rows.length) { bankList.innerHTML = '<div class="xxt-bank-empty">当前题库暂无匹配题目</div>'; return; }
+      if (!active) {
+        bankList.innerHTML = '<div class="xxt-bank-empty">暂无题库</div>';
+        if (bankFilterCount) bankFilterCount.textContent = '';
+        return;
+      }
+      const rows = collectBankRows(active);
+      updateBankFilterCount(rows);
+      if (!rows.length) {
+        const filtered = !!(bankSearchText.trim() || (bankTypeFilter && bankTypeFilter.value) || (bankStatusFilter && bankStatusFilter.value));
+        bankList.innerHTML = '<div class="xxt-bank-empty">' + (filtered ? '当前筛选条件下没有题目' : '当前题库暂无题目') + '</div>';
+        return;
+      }
       const totalPages = Math.max(1, Math.ceil(rows.length / BANK_PAGE_SIZE));
       bankCurrentPage = Math.max(1, Math.min(totalPages, bankCurrentPage));
       const start = (bankCurrentPage - 1) * BANK_PAGE_SIZE;
       const pageRows = rows.slice(start, start + BANK_PAGE_SIZE);
+      const query = !!(bankSearchText.trim() || (bankTypeFilter && bankTypeFilter.value) || (bankStatusFilter && bankStatusFilter.value));
       const groups = QUESTION_BANK_TYPES.map(type => {
         const typeRows = pageRows.filter(row => row.type === type);
         if (!typeRows.length) return '';
-        const total = matchedTypeCounts[type];
+        const total = rows.filter(row => row.type === type).length;
         const totalLabel = (query ? '匹配 ' : '共 ') + total + ' 题';
         const countLabel = typeRows.length === total ? totalLabel : '本页 ' + typeRows.length + ' / ' + totalLabel;
         return '<section class="xxt-bank-type-group"><div class="xxt-bank-type-head"><span class="xxt-bank-type-title">' +
@@ -10016,17 +11895,274 @@ Typr["U"] = {
       const pagination = totalPages > 1
         ? '<div class="xxt-bank-pagination"><button data-bank-page="prev"' + (bankCurrentPage === 1 ? ' disabled' : '') + '>上一页</button><span>第 ' + bankCurrentPage + ' / ' + totalPages + ' 页 · ' + rows.length + ' 题</span><button data-bank-page="next"' + (bankCurrentPage === totalPages ? ' disabled' : '') + '>下一页</button></div>'
         : '<div class="xxt-bank-pagination"><span>共 ' + rows.length + ' 题</span></div>';
+      // 先拼再一次性写入，避免大批量渲染时的多段重排。
       bankList.innerHTML = groups + pagination;
     }
 
     function refreshBankModal(resetPage = false) {
       if (resetPage) bankCurrentPage = 1;
-      renderBankSelector(); renderBankList();
+      renderBankSelector(); renderBankList(); renderBankAiState();
     }
 
     function getCurrentExtractedQuestionCount() {
       return Object.values((extractedData && extractedData.results) || {}).reduce((sum, list) =>
         sum + (Array.isArray(list) ? list.length : 0), 0);
+    }
+
+    // ==================== 题库区：AI 批量处理 ====================
+    // 状态机：一次只允许一个 AI 任务运行，可随时停止；每完成一题立即写盘，
+    // 中途刷新页面也不会丢掉已写入的答案。
+    const bankAiRun = {
+      running: false, stopped: false, total: 0, done: 0, changed: 0, failed: 0, skipped: 0,
+      mode: '', lastError: ''
+    };
+
+    function renderBankAiState() {
+      if (!bankAiState) return;
+      const ai = (currentSettings && currentSettings.ai) || {};
+      if (bankAiRun.running) {
+        bankAiState.textContent = `处理中 ${bankAiRun.done} / ${bankAiRun.total}`;
+      } else if (!xxtAiConfigReady()) {
+        bankAiState.textContent = '尚未配置';
+      } else {
+        const model = ai.model || '未选模型';
+        const missing = collectBankRows().filter(row => !row.hasAnswer).length;
+        bankAiState.textContent = `${model} · 无答案 ${missing} 题`;
+      }
+      const actions = bankModal.querySelector('#xxt-bank-ai-actions');
+      if (actions) {
+        actions.querySelectorAll('button[data-ai-action]').forEach(button => {
+          const action = button.dataset.aiAction;
+          if (action === 'stop') button.disabled = !bankAiRun.running;
+          else if (action === 'settings') button.disabled = bankAiRun.running;
+          else button.disabled = bankAiRun.running;
+        });
+      }
+      if (bankAiProgress) bankAiProgress.hidden = !bankAiRun.total;
+      if (bankAiBar) bankAiBar.hidden = !bankAiRun.total;
+    }
+
+    function setBankAiProgress(text, ratio) {
+      if (bankAiProgress) bankAiProgress.textContent = text;
+      if (bankAiBar) {
+        const bar = bankAiBar.querySelector('i');
+        if (bar) bar.style.width = `${Math.max(0, Math.min(100, Math.round(ratio * 100)))}%`;
+      }
+    }
+
+    // 把 AI 结果写回题库中的同一道题（不重建题库，避免 id 变化后勾选错位）。
+    function applyAiAnswerToBankQuestions(entries) {
+      const state = loadQuestionBankState();
+      const active = state.banks.find(bank => bank.id === state.activeBankId) || state.banks[0];
+      if (!active) return;
+      entries.forEach(entry => {
+        const list = active.results[entry.type];
+        const question = list && list[entry.index];
+        if (!question) return;
+        if (entry.explanationOnly) {
+          // 补解析模式：只写解析，答案与错题状态一概不动。
+          if (entry.explanation) question.explanation = entry.explanation;
+          question.explanationSource = 'ai';
+          question.explanationUpdatedAt = new Date().toISOString();
+          if (Number.isFinite(Number(entry.confidence))) {
+            question.explanationConfidence = Math.max(0, Math.min(1, Number(entry.confidence)));
+          }
+          return;
+        }
+        question.correctAnswer = entry.answer;
+        question.correctAnswerContent = [{ type: 'text', text: entry.answer }];
+        question.answerSource = 'ai';
+        question.aiConfidence = entry.confidence;
+        question.aiUpdatedAt = new Date().toISOString();
+        if (entry.explanation) question.explanation = entry.explanation;
+        question.myAnswer = '';
+        question.isWrong = false;
+      });
+      active.updatedAt = new Date().toISOString();
+      saveQuestionBankState(state);
+      refreshBankModal();
+    }
+
+    // mode: 'fill-missing' | 'review-all' | 'fix-selected'
+    async function runBankAiBatch(mode) {
+      if (bankAiRun.running) return;
+      const configHint = xxtAiConfigHint();
+      if (configHint) {
+        showStatus(els, configHint, 'warn');
+        openAiSettings();
+        return;
+      }
+
+      let targets = [];
+      if (mode === 'fix-selected') {
+        if (!bankSelectedKeys.size) {
+          showStatus(els, '请先在题目卡片左侧勾选要处理的题目', 'warn');
+          return;
+        }
+        targets = collectBankRows().filter(row => bankSelectedKeys.has(bankQuestionKey(row.type, row.index)));
+      } else if (mode === 'fill-explanation') {
+        // 补解析：所有题型、所有缺解析的题（与答案是否存在无关）。
+        targets = collectBankRows().filter(row => !String(row.question && row.question.explanation || '').trim());
+      } else {
+        const rows = collectBankRows();
+        targets = mode === 'fill-missing' ? rows.filter(row => !row.hasAnswer) : rows;
+      }
+
+      if (!targets.length) {
+        const emptyMsg = mode === 'fill-missing' ? '当前题库没有缺少答案的题目'
+          : mode === 'fill-explanation' ? '当前筛选范围内的题目都已有解析'
+          : '当前筛选条件下没有可处理的题目';
+        showStatus(els, emptyMsg, 'warn');
+        return;
+      }
+      if (targets.length > 400) {
+        showStatus(els, `本次需要处理 ${targets.length} 题，为免误操作请先筛选（题型/状态）缩小到 400 题以内`, 'warn');
+        return;
+      }
+      if (mode === 'review-all') {
+        const confirmed = confirm(`将把 ${targets.length} 道题全部交给 AI 审核，AI 返回的答案会直接覆盖题库里的现有答案。\n\n建议先用“多选”“低置信度”等筛选小范围试一下。是否继续？`);
+        if (!confirmed) return;
+      }
+
+      const concurrency = Math.max(1, Math.min(6, Number(currentSettings.ai.concurrency) || 2));
+      bankAiRun.running = true; bankAiRun.stopped = false;
+      bankAiRun.total = targets.length; bankAiRun.done = 0;
+      bankAiRun.changed = 0; bankAiRun.failed = 0; bankAiRun.skipped = 0;
+      bankAiRun.mode = mode; bankAiRun.lastError = '';
+      renderBankAiState();
+      setBankAiProgress(`准备处理 ${targets.length} 道题（并发 ${concurrency}）…`, 0);
+
+      const pendingWrites = [];
+      let cursor = 0;
+
+      const worker = async () => {
+        while (!bankAiRun.stopped && cursor < targets.length) {
+          const row = targets[cursor++];
+          try {
+            if (mode === 'fill-explanation') {
+              // 只补解析：不动答案，避免覆盖用户已有的正确答案。
+              const result = await xxtAiExplainQuestion(row.question, row.type);
+              if (bankAiRun.stopped) { bankAiRun.skipped++; break; }
+              if (!result.explanation) {
+                bankAiRun.skipped++;
+              } else {
+                pendingWrites.push({
+                  type: row.type, index: row.index,
+                  explanationOnly: true,
+                  explanation: result.explanation,
+                  confidence: result.confidence
+                });
+                bankAiRun.changed++;
+              }
+            } else {
+              const result = await xxtAiAnswerQuestion(row.question, row.type);
+              if (bankAiRun.stopped) { bankAiRun.skipped++; break; }
+              if (!result.answer) {
+                bankAiRun.skipped++;
+              } else {
+                pendingWrites.push({
+                  type: row.type, index: row.index,
+                  answer: result.answer,
+                  explanation: result.explanation,
+                  confidence: result.confidence
+                });
+                bankAiRun.changed++;
+              }
+            }
+          } catch (error) {
+            bankAiRun.failed++;
+            bankAiRun.lastError = error && error.message ? error.message : String(error);
+            // 403/401/404 多是配置问题，继续请求只会白烧时间。
+            if (/HTTP (401|403|404)/.test(bankAiRun.lastError)) bankAiRun.stopped = true;
+          }
+          bankAiRun.done++;
+          setBankAiProgress(
+            `已处理 ${bankAiRun.done} / ${bankAiRun.total} · 写入 ${bankAiRun.changed} · 跳过 ${bankAiRun.skipped} · 失败 ${bankAiRun.failed}` +
+            (bankAiRun.lastError ? `\n最近错误：${bankAiRun.lastError}` : ''),
+            bankAiRun.done / bankAiRun.total
+          );
+          // 每 5 题落盘一次，既能持续保存，又不会频繁写 GM 存储。
+          if (pendingWrites.length >= 5) {
+            const batchWrites = pendingWrites.splice(0, pendingWrites.length);
+            try { applyAiAnswerToBankQuestions(batchWrites); } catch (e) { bankAiRun.lastError = e.message; }
+          }
+        }
+      };
+
+      try {
+        await Promise.all(Array.from({ length: Math.min(concurrency, targets.length) }, worker));
+      } finally {
+        if (pendingWrites.length) {
+          try { applyAiAnswerToBankQuestions(pendingWrites.splice(0, pendingWrites.length)); } catch (e) { bankAiRun.lastError = e.message; }
+        }
+        bankAiRun.running = false;
+        renderBankAiState();
+        refreshBankModal();
+      }
+
+      const verb = mode === 'fill-explanation' ? '补解析' : '写入';
+      const summary = `AI 处理完成：${verb} ${bankAiRun.changed} 题，跳过 ${bankAiRun.skipped} 题，失败 ${bankAiRun.failed} 题` +
+        (bankAiRun.stopped ? '（已手动停止）' : '') +
+        (bankAiRun.lastError ? `\n最近错误：${bankAiRun.lastError}` : '');
+      setBankAiProgress(summary, 1);
+      showStatus(els, summary.replace(/\n/g, ' '), bankAiRun.failed ? 'warn' : 'ok');
+    }
+
+    // 单题：立即请求 AI 并回写（带预览确认，避免误覆盖已有答案）。
+    async function runBankAiBatchForSingle(type, index) {
+      const configHint = xxtAiConfigHint();
+      if (configHint) { showStatus(els, configHint, 'warn'); openAiSettings(); return; }
+      const bank = getActiveQuestionBank();
+      const question = bank && bank.results[type] && bank.results[type][index];
+      if (!question) return;
+      const previous = String(question.correctAnswer || richTextOnly(answerContent(question)) || '').trim();
+      setBankAiProgress(`正在请求 AI 处理第 ${index + 1} 题…`, 0.4);
+      showStatus(els, `AI 正在处理第 ${index + 1} 题…`, 'loading');
+      try {
+        const result = await xxtAiAnswerQuestion(question, type);
+        if (!result.answer) throw new Error('AI 未能给出确定答案，建议人工确认');
+        setBankAiProgress('', 1);
+        const detail = [
+          `题型：${bankTypeLabels[type] || type}`,
+          `原答案：${previous || '（空）'}`,
+          `AI 答案：${result.answer}`,
+          Number.isFinite(Number(result.confidence)) && Number(result.confidence) > 0 ? `置信度：${Math.round(Number(result.confidence) * 100)}%` : '',
+          result.explanation ? `依据：${result.explanation}` : ''
+        ].filter(Boolean).join('\n');
+        if (!confirm(`${detail}\n\n是否写入该答案？`)) {
+          showStatus(els, '已取消，题库未修改', 'warn');
+          return;
+        }
+        applyAiAnswerToBankQuestions([{ type, index, answer: result.answer, explanation: result.explanation, confidence: result.confidence }]);
+        showStatus(els, `第 ${index + 1} 题已写入 AI 答案：${result.answer}`, 'ok');
+      } catch (error) {
+        setBankAiProgress(`AI 处理失败：${error.message || error}`, 0);
+        showStatus(els, `AI 处理失败：${error && error.message ? error.message : error}`, 'err');
+      }
+    }
+
+    // 单题只补解析：不动答案。
+    async function runBankAiExplainForSingle(type, index) {
+      const configHint = xxtAiConfigHint();
+      if (configHint) { showStatus(els, configHint, 'warn'); openAiSettings(); return; }
+      const bank = getActiveQuestionBank();
+      const question = bank && bank.results[type] && bank.results[type][index];
+      if (!question) return;
+      setBankAiProgress(`正在为该题生成解析…`, 0.4);
+      showStatus(els, `AI 正在为第 ${index + 1} 题生成解析…`, 'loading');
+      try {
+        const result = await xxtAiExplainQuestion(question, type);
+        if (!result.explanation) throw new Error('AI 未能生成解析，建议人工补充');
+        setBankAiProgress('', 1);
+        applyAiAnswerToBankQuestions([{
+          type, index, explanationOnly: true,
+          explanation: result.explanation, confidence: result.confidence
+        }]);
+        showStatus(els, `第 ${index + 1} 题解析已写入`, 'ok');
+      } catch (error) {
+        setBankAiProgress(`生成解析失败：${error.message || error}`, 0);
+        showStatus(els, `生成解析失败：${error && error.message ? error.message : error}`, 'err');
+      }
     }
 
     function updateSaveBankHint() {
@@ -10233,10 +12369,30 @@ Typr["U"] = {
       });
       editorModal.classList.add('open');
     });
-    bankModal.querySelector('#xxt-bank-export-word').addEventListener('click', event => exportActiveQuestionBank('word', event.currentTarget));
-    bankModal.querySelector('#xxt-bank-export-txt').addEventListener('click', event => exportActiveQuestionBank('txt', event.currentTarget));
-    bankModal.querySelector('#xxt-bank-export-md').addEventListener('click', event => exportActiveQuestionBank('md', event.currentTarget));
-    bankModal.querySelector('#xxt-bank-export-pdf').addEventListener('click', event => exportActiveQuestionBank('pdf', event.currentTarget));
+    bankModal.querySelector('#xxt-bank-export').addEventListener('click', async event => {
+      // 重要：必须在第一个 await 之前抓下按钮引用。事件派发结束后
+      // event.currentTarget 会被置为 null，await 后再读就会变成 null，
+      // 导致导出函数拿不到按钮、直接抛异常，表现就是“点了没反应”。
+      const button = event.currentTarget;
+      const bank = getActiveQuestionBank();
+      if (!bank || !bankQuestionCount(bank)) { showStatus(els, '当前题库为空，暂无可导出的题目', 'warn'); return; }
+      const choice = await xxtChooseExportOptions({
+        title: `导出“${bank.name}”`,
+        defaultValue: (currentSettings.exportConfig && currentSettings.exportConfig.format) || 'word',
+        withAnswers: !!(els.chkAnswers && els.chkAnswers.checked),
+        withExplanation: !!(currentSettings.exportConfig && currentSettings.exportConfig.withExplanation)
+      });
+      if (!choice) return;
+      if (els.chkAnswers) els.chkAnswers.checked = choice.withAnswers;
+      try {
+        await exportActiveQuestionBank(choice.format, button, {
+          withAnswers: choice.withAnswers,
+          withExplanation: choice.withExplanation
+        });
+      } catch (error) {
+        showStatus(els, `导出失败：${error && error.message ? error.message : error}`, 'err');
+      }
+    });
     bankModal.querySelector('#xxt-bank-clear').addEventListener('click', () => {
       const state = loadQuestionBankState(); const bank = getActiveQuestionBank(); if (!bank) return;
       const count = bankQuestionCount(bank);
@@ -10244,38 +12400,137 @@ Typr["U"] = {
       if (!confirm(`确定清空“${bank.name}”中的 ${count} 道题吗？题库名称会保留。`)) return;
       bank.results = Object.fromEntries(QUESTION_BANK_TYPES.map(type => [type, []]));
       bank.typeOrder = []; bank.updatedAt = new Date().toISOString();
+      bankSelectedKeys.clear();
       try { saveQuestionBankState(state); refreshBankModal(); showStatus(els, `已清空“${bank.name}”`, 'ok'); }
       catch (error) { showStatus(els, `清空失败：${error.message}`, 'err'); }
     });
+
+    // ==================== 题库导入（JSON / TXT / MD / DOCX / PDF） ====================
+    const bankImportHint = () => {
+      bankAiProgress && (bankAiProgress.hidden = false);
+    };
     bankModal.querySelector('#xxt-bank-import').addEventListener('click', () => bankModal.querySelector('#xxt-bank-file').click());
-    bankModal.querySelector('#xxt-bank-file').addEventListener('change', event => {
-      const file = event.target.files && event.target.files[0]; event.target.value = ''; if (!file) return;
-      if (file.size > QUESTION_BANK_MAX_BYTES) { showStatus(els, '导入文件超过 8MB，已拒绝', 'err'); return; }
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const parsed = JSON.parse(String(reader.result || ''));
-          if (!isSupportedQuestionBankImport(parsed)) throw new Error('不支持的题库结构；请选择本脚本备份、参考脚本题库或 OCS JSON');
-          const imported = normalizeQuestionBankState(parsed);
-          const importCount = imported.banks.reduce((sum, bank) => sum + bankQuestionCount(bank), 0);
-          if (!importCount) throw new Error('文件中没有识别到有效题目，未导入空题库');
-          const state = loadQuestionBankState();
-          imported.banks.forEach(bank => {
-            bank.name = uniqueImportedBankName(state, bank.name);
-            bank.id = `bank-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-            bank.updatedAt = new Date().toISOString(); state.banks.push(bank);
-          });
-          state.activeBankId = imported.banks[0] ? imported.banks[0].id : state.activeBankId;
-          saveQuestionBankState(state); refreshBankModal();
-          showStatus(els, `导入成功：${imported.banks.length} 个题库，共 ${importCount} 道题`, 'ok');
-        } catch (error) { showStatus(els, `导入失败：${error.message || 'JSON 格式无效'}`, 'err'); }
+    bankModal.querySelector('#xxt-bank-file').addEventListener('change', async event => {
+      const file = event.target.files && event.target.files[0];
+      event.target.value = '';
+      if (!file) return;
+      if (file.size > 20 * 1024 * 1024) { showStatus(els, '文件超过 20MB，请拆分后再导入', 'err'); return; }
+
+      const importButton = bankModal.querySelector('#xxt-bank-import');
+      const originalText = importButton.textContent;
+      importButton.disabled = true;
+      const report = message => {
+        importButton.textContent = originalText;
+        showStatus(els, message, 'loading');
+        bankImportHint();
+        if (bankAiProgress) {
+          bankAiProgress.hidden = false;
+          bankAiProgress.textContent = message;
+        }
       };
-      reader.onerror = () => showStatus(els, '导入失败：浏览器无法读取该文件', 'err');
-      reader.readAsText(file, 'utf-8');
+      report(`正在处理“${file.name}”…`);
+
+      try {
+        const parsed = await xxtParseBankFile(file, report);
+        const importCount = parsed.banks.reduce((sum, bank) => sum + bankQuestionCount(bank), 0);
+        if (!importCount) throw new Error('文件中没有识别到有效题目，未导入空题库');
+
+        const state = loadQuestionBankState();
+        const created = [];
+        parsed.banks.forEach(bank => {
+          const normalized = normalizeQuestionBank(bank);
+          if (!bankQuestionCount(normalized)) return;
+          normalized.name = uniqueImportedBankName(state, normalized.name);
+          normalized.id = `bank-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          normalized.updatedAt = new Date().toISOString();
+          state.banks.push(normalized);
+          created.push(normalized);
+        });
+        if (!created.length) throw new Error('识别出的题目均为空，未导入');
+        state.activeBankId = created[0].id;
+        saveQuestionBankState(state);
+        bankSelectedKeys.clear();
+        bankCurrentPage = 1;
+        bankSearchText = '';
+        if (bankSearchInput) bankSearchInput.value = '';
+        if (bankTypeFilter) bankTypeFilter.value = '';
+        if (bankStatusFilter) bankStatusFilter.value = '';
+        refreshBankModal(true);
+        const kindLabel = { json: 'JSON', txt: 'TXT', md: 'Markdown', docx: 'Word', pdf: 'PDF' }[parsed.kind] || '文件';
+        if (bankAiProgress) {
+          bankAiProgress.hidden = false;
+          bankAiProgress.textContent = `导入完成：${kindLabel} · ${created.length} 个题库 · ${importCount} 道题`;
+        }
+        showStatus(els, `从 ${kindLabel} 导入成功：${created.length} 个题库，共 ${importCount} 道题` +
+          (created.length && bankQuestionCount(created[0]) && parsed.kind !== 'json'
+            ? '；已自动按题号/选项/答案识别，建议抽查几道后再导出' : ''), 'ok');
+      } catch (error) {
+        if (bankAiProgress) {
+          bankAiProgress.hidden = false;
+          bankAiProgress.textContent = `导入失败：${error && error.message ? error.message : error}`;
+        }
+        showStatus(els, `导入失败：${error && error.message ? error.message : error}`, 'err');
+      } finally {
+        importButton.disabled = false;
+        importButton.textContent = originalText;
+      }
     });
+
+    // ==================== 题库筛选与勾选 ====================
+    if (bankTypeFilter) bankTypeFilter.addEventListener('change', () => { bankCurrentPage = 1; renderBankList(); });
+    if (bankStatusFilter) bankStatusFilter.addEventListener('change', () => { bankCurrentPage = 1; renderBankList(); });
+    bankModal.querySelector('#xxt-bank-select-all').addEventListener('click', () => {
+      collectBankRows().slice((bankCurrentPage - 1) * BANK_PAGE_SIZE, bankCurrentPage * BANK_PAGE_SIZE)
+        .forEach(row => bankSelectedKeys.add(bankQuestionKey(row.type, row.index)));
+      renderBankList();
+    });
+    bankModal.querySelector('#xxt-bank-select-none').addEventListener('click', () => {
+      bankSelectedKeys.clear();
+      renderBankList();
+    });
+    bankModal.querySelector('#xxt-bank-select-missing').addEventListener('click', () => {
+      const rows = collectBankRows().filter(row => !row.hasAnswer);
+      rows.forEach(row => bankSelectedKeys.add(bankQuestionKey(row.type, row.index)));
+      renderBankList();
+      showStatus(els, rows.length ? `已选中 ${rows.length} 道无答案题` : '当前筛选条件下没有无答案题', rows.length ? 'ok' : 'warn');
+    });
+
+    // ==================== 题库区 AI 按钮 ====================
+    bankModal.querySelector('#xxt-bank-ai-actions').addEventListener('click', event => {
+      const button = event.target.closest('button[data-ai-action]');
+      if (!button) return;
+      const action = button.dataset.aiAction;
+      if (action === 'settings') { openAiSettings(); return; }
+      if (action === 'stop') {
+        bankAiRun.stopped = true;
+        setBankAiProgress(`${bankAiRun.done} / ${bankAiRun.total} · 正在停止，已完成的结果会保留…`, bankAiRun.total ? bankAiRun.done / bankAiRun.total : 0);
+        renderBankAiState();
+        return;
+      }
+      if (action === 'fill-missing') runBankAiBatch('fill-missing');
+      else if (action === 'fill-explanation') runBankAiBatch('fill-explanation');
+      else if (action === 'review-all') runBankAiBatch('review-all');
+      else if (action === 'fix-selected') runBankAiBatch('fix-selected');
+    });
+    // 供 AI 设置弹窗保存后刷新题库状态。
+    window.__xxt_refresh_bank_ai = () => { try { renderBankAiState(); } catch (e) {} };
+
     bankSearchInput.addEventListener('input', () => { bankSearchText = bankSearchInput.value; bankCurrentPage = 1; renderBankList(); });
     bankModal.querySelector('#xxt-bank-search-btn').addEventListener('click', () => { bankSearchText = bankSearchInput.value; bankCurrentPage = 1; renderBankList(); });
     bankModal.querySelector('#xxt-bank-compare-btn').addEventListener('click', compareCurrentPageWithBank);
+    bankList.addEventListener('change', event => {
+      const box = event.target.closest('[data-bank-check]');
+      if (!box) return;
+      const card = box.closest('.xxt-bank-card');
+      if (!card) return;
+      const key = bankQuestionKey(card.dataset.bankType, Number(card.dataset.bankIndex));
+      if (box.checked) bankSelectedKeys.add(key);
+      else bankSelectedKeys.delete(key);
+      box.classList.toggle('xxt-check-on', box.checked);
+      card.classList.toggle('xxt-bank-card-selected', box.checked);
+      // 只更新计数，不整表重排：重排会让复选框闪一下并丢焦点。
+      updateBankFilterCount();
+    });
     bankList.addEventListener('click', event => {
       const pageAction = event.target.closest('[data-bank-page]');
       if (pageAction && !pageAction.disabled) {
@@ -10289,9 +12544,13 @@ Typr["U"] = {
       const question = bank && bank.results[type] && bank.results[type][index]; if (!question) return;
       if (action.dataset.bankAction === 'edit') { openBankEditor(bank, type, index); return; }
       if (action.dataset.bankAction === 'load') { loadBankIntoPanel(createExtractedDataFromResults({ [type]: [question] }, [type], `${bank.name}-${type}`)); return; }
+      if (action.dataset.bankAction === 'ai') { runBankAiBatchForSingle(type, index); return; }
+      if (action.dataset.bankAction === 'ai-explain') { runBankAiExplainForSingle(type, index); return; }
       if (action.dataset.bankAction === 'delete') {
         if (!confirm('确定删除这道题吗？')) return;
         bank.results[type].splice(index, 1); bank.typeOrder = QUESTION_BANK_TYPES.filter(item => bank.results[item].length); bank.updatedAt = new Date().toISOString();
+        // 删题后下标左移，旧的勾选 key 会错位，直接清空。
+        bankSelectedKeys.clear();
         const state = loadQuestionBankState(); state.banks = state.banks.map(item => item.id === bank.id ? bank : item);
         try { saveQuestionBankState(state); refreshBankModal(); } catch (error) { showStatus(els, `删除失败：${error.message}`, 'err'); }
       }
@@ -10349,6 +12608,8 @@ Typr["U"] = {
     const editorSave = editorModal.querySelector('#xxt-editor-save');
     let editorDraft = null;
     let editorSession = { kind: 'extracted' };
+    // 声明提前：renderEditor 可能在任何时机被首次调用，提前到模组开头避免 TDZ。
+    const editorAiRun = { running: false, stopped: false, total: 0, done: 0, changed: 0, failed: 0, skipped: 0 };
     const editorTypeLabels = { '单选': '单选题', '多选': '多选题', '填空': '填空题', '判断': '判断题', '简答': '简答题' };
     editorList.addEventListener('change', event => {
       if (event.target && event.target.classList.contains('xxt-editor-select')) updateEditorSelectionUI();
@@ -10431,7 +12692,7 @@ Typr["U"] = {
         const toolbar = document.createElement('div');
         toolbar.id = 'xxt-editor-selection-toolbar';
         toolbar.className = 'xxt-editor-selection-toolbar';
-        toolbar.innerHTML = '<button type="button" data-editor-select-action="all">全选</button><button type="button" data-editor-select-action="none">全不选</button><button type="button" data-editor-select-action="wrong">仅选错题</button><span class="xxt-editor-selection-count"></span>';
+        toolbar.innerHTML = '<button type="button" data-editor-select-action="all">全选</button><button type="button" data-editor-select-action="none">全不选</button><button type="button" data-editor-select-action="wrong">仅选错题</button><button type="button" data-editor-select-action="missing">仅选无答案</button><span class="xxt-editor-selection-count"></span>';
         toolbar.addEventListener('click', event => {
           const action = event.target && event.target.dataset && event.target.dataset.editorSelectAction;
           if (!action) return;
@@ -10440,12 +12701,37 @@ Typr["U"] = {
             const card = input.closest('.xxt-editor-card');
             if (action === 'all') input.checked = true;
             else if (action === 'none') input.checked = false;
-            else input.checked = card && card.dataset.isWrong === 'true';
+            else if (action === 'wrong') input.checked = card && card.dataset.isWrong === 'true';
+            else input.checked = card && card.dataset.hasAnswer !== 'true';
           });
           updateEditorSelectionUI();
         });
         // 直接相对题目列表插入，避免页面重绘后 parentElement 与引用节点不一致。
         editorList.before(toolbar);
+
+        // AI 工具条放在勾选工具条上方，与题库区的操作语义保持一致。
+        const aiBar = document.createElement('div');
+        aiBar.id = 'xxt-editor-ai-bar';
+        aiBar.className = 'xxt-editor-ai-bar';
+        aiBar.innerHTML = '<strong>✦ AI 补全 / 纯正</strong>' +
+          '<button type="button" data-editor-ai="fill-missing">补充无答案题</button>' +
+          '<button type="button" data-editor-ai="fill-explanation">补全解析</button>' +
+          '<button type="button" data-editor-ai="review-all">审核全部题目</button>' +
+          '<button type="button" data-editor-ai="fix-selected">处理勾选题目</button>' +
+          '<button type="button" data-editor-ai="stop" disabled>停止</button>' +
+          '<span class="xxt-editor-ai-status" data-editor-ai-status></span>';
+        aiBar.addEventListener('click', event => {
+          const button = event.target.closest('button[data-editor-ai]');
+          if (!button) return;
+          const action = button.dataset.editorAi;
+          if (action === 'stop') { editorAiRun.stopped = true; return; }
+          if (action === 'fill-missing') runEditorAiBatch('fill-missing');
+          else if (action === 'fill-explanation') runEditorAiBatch('fill-explanation');
+          else if (action === 'review-all') runEditorAiBatch('review-all');
+          else if (action === 'fix-selected') runEditorAiBatch('fix-selected');
+        });
+        editorList.before(aiBar);
+        updateEditorAiBar();
       }
       typeOrder.forEach(qtype => {
         const questions = editorDraft[qtype] || [];
@@ -10460,6 +12746,9 @@ Typr["U"] = {
           card.dataset.qtype = qtype;
           card.dataset.qindex = qIndex;
           card.dataset.isWrong = q.isWrong ? 'true' : 'false';
+          // hasAnswer / hasExplanation 供批量筛选使用；输入框变化时同步刷新。
+          card.dataset.hasAnswer = String(!!String(richTextOnly(answerContent(q)) || '').trim());
+          card.dataset.hasExplanation = String(!!String(q.explanation || '').trim());
           const titleRow = document.createElement('div');
           titleRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;';
           const title = document.createElement('div');
@@ -10472,8 +12761,24 @@ Typr["U"] = {
             select.className = 'xxt-editor-select';
             select.title = '勾选后才会用于导出、复制和存入题库';
             select.checked = isEditorQuestionSelected(qtype, q);
+            // 用 class 控制勾选外观（见 CSS 中 .xxt-check-on），
+            // 避免在 JS 里拼内联 SVG 转义。
+            if (select.checked) select.classList.add('xxt-check-on');
+            select.addEventListener('change', () => {
+              select.classList.toggle('xxt-check-on', select.checked);
+            });
             titleRow.insertBefore(select, title);
           }
+          // 单题 AI 按钮：总是可用（无答案 = 补全，有答案 = 纯正）。
+          const aiOne = document.createElement('button');
+          aiOne.type = 'button';
+          aiOne.className = 'xxt-editor-ai-one';
+          aiOne.dataset.editorAiOne = '1';
+          aiOne.textContent = '✦ AI';
+          aiOne.title = '用 AI 给出该题答案，确认后填入正确答案框（不会直接保存）';
+          aiOne.addEventListener('click', () => runEditorAiForCard(card));
+          titleRow.insertBefore(aiOne, title);
+
           const removeQuestion = document.createElement('button');
           removeQuestion.type = 'button';
           removeQuestion.className = 'xxt-editor-remove';
@@ -10511,11 +12816,241 @@ Typr["U"] = {
 
           const answerField = makeEditorField('正确答案（可留空）', 'textarea', 'xxt-editor-answer', richContentToEditableText(answerContent(q)));
           answerField.field.rows = 1;
+          answerField.field.addEventListener('input', () => {
+            card.dataset.hasAnswer = String(!!answerField.field.value.trim());
+            updateEditorSelectionUI();
+          });
           card.appendChild(answerField.wrap);
+
+          // 解析输入框：可手工编辑，也可由 AI 填充。
+          const explanationField = makeEditorField('解析（可留空）', 'textarea', 'xxt-editor-explanation', String(q.explanation || ''));
+          explanationField.field.rows = 2;
+          explanationField.field.addEventListener('input', () => {
+            card.dataset.hasExplanation = String(!!explanationField.field.value.trim());
+          });
+          card.appendChild(explanationField.wrap);
+
+          // AI 结果/解析展示区（初始隐藏）。
+          const aiTip = document.createElement('div');
+          aiTip.className = 'xxt-editor-ai-tip';
+          aiTip.hidden = true;
+          card.appendChild(aiTip);
+
           editorList.appendChild(card);
         });
       });
       updateEditorSelectionUI();
+    }
+
+    // ==================== 在线编辑器：AI 补全 / 纯正 ====================
+    function updateEditorAiBar() {
+      const bar = editorModal.querySelector('#xxt-editor-ai-bar');
+      if (!bar) return;
+      const statusEl = bar.querySelector('[data-editor-ai-status]');
+      if (statusEl) {
+        statusEl.textContent = editorAiRun.running
+          ? `处理中 ${editorAiRun.done} / ${editorAiRun.total}`
+          : (xxtAiConfigReady() ? `模型：${currentSettings.ai.model}` : '未配置 AI 提供商');
+      }
+      bar.querySelectorAll('button[data-editor-ai]').forEach(button => {
+        button.disabled = button.dataset.editorAi === 'stop' ? !editorAiRun.running : editorAiRun.running;
+      });
+    }
+
+    function setEditorAiTip(card, text, isWarn = false) {
+      const tip = card.querySelector('.xxt-editor-ai-tip');
+      if (!tip) return;
+      if (!text) { tip.hidden = true; tip.textContent = ''; return; }
+      tip.hidden = false;
+      tip.classList.toggle('is-warn', !!isWarn);
+      tip.textContent = text;
+    }
+
+    // 从卡片当前的输入框内容重建一个题对象，让 AI 看到用户刚改过的题干与选项。
+    function readEditorCardQuestion(card) {
+      const qtype = card.dataset.qtype;
+      const qIndex = parseInt(card.dataset.qindex, 10);
+      const source = editorDraft && editorDraft[qtype] && editorDraft[qtype][qIndex];
+      if (!source) return null;
+      const stemInput = card.querySelector('.xxt-editor-stem');
+      const stemContent = editableTextToRichContent(stemInput ? stemInput.value : '', questionContent(source));
+      const options = Array.from(card.querySelectorAll('.xxt-editor-option')).map((row, i) => {
+        const letter = row.dataset.letter || String.fromCharCode(65 + i);
+        const content = editableTextToRichContent(row.querySelector('textarea')?.value || '', []);
+        return { letter, text: richTextOnly(content), content };
+      });
+      return {
+        ...JSON.parse(JSON.stringify(source)),
+        stem: formatRichForText(stemContent),
+        stemContent,
+        options
+      };
+    }
+
+    // 把 AI 结果写入卡片的答案框（不自动保存，用户看到后自己点“保存修改”）。
+    function applyEditorAiAnswer(card, result) {
+      const answerInput = card.querySelector('.xxt-editor-answer');
+      if (!answerInput) return false;
+      answerInput.value = result.answer;
+      card.dataset.hasAnswer = 'true';
+      if (result.explanation) {
+        card.dataset.aiExplanation = result.explanation;
+      }
+      if (Number.isFinite(Number(result.confidence))) {
+        card.dataset.aiConfidence = String(Number(result.confidence));
+      }
+      setEditorAiTip(card,
+        `AI 已填入：${result.answer}` +
+        (Number.isFinite(Number(result.confidence)) && Number(result.confidence) > 0 ? `（置信度 ${Math.round(Number(result.confidence) * 100)}%）` : '') +
+        (result.explanation ? `\n依据：${result.explanation}` : '') +
+        '\n请确认后点右下角“保存修改”才会生效。',
+        Number(result.confidence) > 0 && Number(result.confidence) < 0.6
+      );
+      return true;
+    }
+
+    // 把 AI 解析写入卡片解析框（同样需要点“保存修改”才生效）。
+    function applyEditorAiExplanation(card, result) {
+      const input = card.querySelector('.xxt-editor-explanation');
+      if (!input) return false;
+      input.value = result.explanation;
+      card.dataset.hasExplanation = 'true';
+      if (Number.isFinite(Number(result.confidence))) {
+        card.dataset.aiExplanationConfidence = String(Number(result.confidence));
+      }
+      setEditorAiTip(card, 'AI 已填入解析，确认后点“保存修改”生效。', false);
+      return true;
+    }
+
+    async function runEditorAiForCard(card) {
+      if (editorAiRun.running) return;
+      const configHint = xxtAiConfigHint();
+      if (configHint) { openAiSettings(); showStatus(els, configHint, 'warn'); return; }
+      const question = readEditorCardQuestion(card);
+      if (!question) return;
+      const qtype = card.dataset.qtype;
+      const button = card.querySelector('[data-editor-ai-one]');
+      if (button) button.disabled = true;
+      setEditorAiTip(card, 'AI 正在作答…');
+      try {
+        const result = await xxtAiAnswerQuestion(question, qtype);
+        if (!result.answer) throw new Error('AI 未能给出确定答案，建议人工确认');
+        applyEditorAiAnswer(card, result);
+      } catch (error) {
+        setEditorAiTip(card, `AI 处理失败：${error && error.message ? error.message : error}`, true);
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
+    // mode: 'fill-missing' | 'review-all' | 'fix-selected'
+    async function runEditorAiBatch(mode) {
+      if (editorAiRun.running) return;
+      const configHint = xxtAiConfigHint();
+      if (configHint) { openAiSettings(); showStatus(els, configHint, 'warn'); return; }
+
+      const cards = Array.from(editorList.querySelectorAll('.xxt-editor-card'));
+      let targets = [];
+      if (mode === 'fix-selected') {
+        targets = cards.filter(card => {
+          const box = card.querySelector('.xxt-editor-select');
+          return !box || box.checked;
+        });
+      } else if (mode === 'fill-missing') {
+        targets = cards.filter(card => card.dataset.hasAnswer !== 'true');
+      } else if (mode === 'fill-explanation') {
+        targets = cards.filter(card => card.dataset.hasExplanation !== 'true');
+      } else {
+        targets = cards;
+      }
+
+      if (!targets.length) {
+        const emptyMsg = mode === 'fill-missing' ? '没有缺少答案的题目'
+          : mode === 'fill-explanation' ? '所选题目都已有解析'
+          : '没有可处理的题目';
+        showStatus(els, emptyMsg, 'warn');
+        return;
+      }
+      if (targets.length > 400) {
+        showStatus(els, `一次最多处理 400 题，当前 ${targets.length} 题；请先勾选缩小范围`, 'warn');
+        return;
+      }
+      if (mode === 'review-all') {
+        const ok = confirm(`将把 ${targets.length} 道题交给 AI 审核，AI 返回的答案会填入答案框并覆盖原有内容（仍需点“保存修改”才真正生效）。\n\n是否继续？`);
+        if (!ok) return;
+      }
+
+      const concurrency = Math.max(1, Math.min(6, Number((currentSettings.ai && currentSettings.ai.concurrency) || 2)));
+      editorAiRun.running = true; editorAiRun.stopped = false;
+      editorAiRun.total = targets.length; editorAiRun.done = 0;
+      editorAiRun.changed = 0; editorAiRun.failed = 0; editorAiRun.skipped = 0;
+      updateEditorAiBar();
+
+      let cursor = 0;
+      let lastError = '';
+      const worker = async () => {
+        while (!editorAiRun.stopped && cursor < targets.length) {
+          const card = targets[cursor++];
+          const question = readEditorCardQuestion(card);
+          if (!question) { editorAiRun.skipped++; continue; }
+          const qtype = card.dataset.qtype;
+          const button = card.querySelector('[data-editor-ai-one]');
+          if (button) button.disabled = true;
+          try {
+            if (mode === 'fill-explanation') {
+              const result = await xxtAiExplainQuestion(question, qtype);
+              if (editorAiRun.stopped) { editorAiRun.skipped++; break; }
+              if (!result.explanation) {
+                editorAiRun.skipped++;
+                setEditorAiTip(card, 'AI 未能生成解析，建议人工补充', true);
+              } else {
+                applyEditorAiExplanation(card, result);
+                editorAiRun.changed++;
+              }
+            } else {
+              const result = await xxtAiAnswerQuestion(question, qtype);
+              if (editorAiRun.stopped) { editorAiRun.skipped++; break; }
+              if (!result.answer) {
+                editorAiRun.skipped++;
+                setEditorAiTip(card, 'AI 未能给出确定答案，建议人工确认', true);
+              } else {
+                applyEditorAiAnswer(card, result);
+                editorAiRun.changed++;
+              }
+            }
+          } catch (error) {
+            editorAiRun.failed++;
+            lastError = error && error.message ? error.message : String(error);
+            setEditorAiTip(card, `AI 处理失败：${lastError}`, true);
+            // 认证/地址错误没必要继续烧额度。
+            if (/HTTP (401|403|404)/.test(lastError)) editorAiRun.stopped = true;
+          } finally {
+            if (button) button.disabled = false;
+          }
+          editorAiRun.done++;
+          updateEditorAiBar();
+          const bar = editorModal.querySelector('#xxt-editor-ai-bar');
+          const statusEl = bar && bar.querySelector('[data-editor-ai-status]');
+          if (statusEl) {
+            statusEl.textContent = `已处理 ${editorAiRun.done}/${editorAiRun.total} · 填入 ${editorAiRun.changed} · 跳过 ${editorAiRun.skipped} · 失败 ${editorAiRun.failed}`;
+          }
+        }
+      };
+
+      try {
+        await Promise.all(Array.from({ length: Math.min(concurrency, targets.length) }, worker));
+      } finally {
+        editorAiRun.running = false;
+        updateEditorAiBar();
+        updateEditorSelectionUI();
+      }
+
+      const summary = `AI 完成：填入 ${editorAiRun.changed} 题，跳过 ${editorAiRun.skipped} 题，失败 ${editorAiRun.failed} 题` +
+        (editorAiRun.stopped ? '（已停止）' : '') + '；请逐题确认后点“保存修改”生效';
+      const bar = editorModal.querySelector('#xxt-editor-ai-bar');
+      const statusEl = bar && bar.querySelector('[data-editor-ai-status]');
+      if (statusEl) statusEl.textContent = summary;
+      showStatus(els, summary, editorAiRun.failed ? 'warn' : 'ok');
     }
 
     function saveEditorChanges() {
@@ -10544,6 +13079,28 @@ Typr["U"] = {
         });
         q.correctAnswerContent = editableTextToRichContent(answerInput ? answerInput.value : '', oldAnswer);
         q.correctAnswer = richTextOnly(q.correctAnswerContent);
+        const explanationInput = card.querySelector('.xxt-editor-explanation');
+        if (explanationInput) {
+          const explanation = String(explanationInput.value || '').trim();
+          if (explanation) q.explanation = explanation.substring(0, 2000);
+          else delete q.explanation;
+          if (explanation && card.dataset.aiExplanationConfidence) {
+            q.explanationSource = 'ai';
+            q.explanationUpdatedAt = new Date().toISOString();
+            const confidence = Number(card.dataset.aiExplanationConfidence);
+            if (Number.isFinite(confidence)) q.explanationConfidence = confidence;
+          }
+        }
+        // 若该题在本轮被 AI 处理过，把置信度与解析一并落盘，供题库区标记与复核。
+        if (card.dataset.aiExplanation) {
+          q.explanation = String(card.dataset.aiExplanation).trim().substring(0, 2000);
+          q.answerSource = 'ai';
+          q.aiUpdatedAt = new Date().toISOString();
+        }
+        if (card.dataset.aiConfidence) {
+          const confidence = Number(card.dataset.aiConfidence);
+          if (Number.isFinite(confidence)) q.aiConfidence = confidence;
+        }
         if (QUESTION_BANK_TYPES.includes(qtype)) {
           nextResults[qtype].push(q);
           const select = card.querySelector('.xxt-editor-select');
@@ -10849,6 +13406,8 @@ Typr["U"] = {
       }
     });
 
+    // 下载前统一选择格式（与题库区一致）：用户选完后才真正生成文件。
+    // 面板里的“输出格式”单选仍然保留，作为默认选中项。
     els.btnDownload.addEventListener('click', async () => {
       if (!extractedData) return;
       const exportData = getSelectedExtractedData();
@@ -10856,8 +13415,70 @@ Typr["U"] = {
         showStatus(els, '当前没有勾选题目，请先选择至少 1 道题', 'warn');
         return;
       }
-      const fmt = getFormat(els);
-      const baseFilename = (els.filename.value || '学习通题目').replace(/\.(txt|md|docx|pdf)$/, '');
+      const choice = await xxtChooseExportOptions({
+        title: `导出 ${exportData.total || getSelectedQuestionCount()} 道题`,
+        defaultValue: getFormat(els) || 'word',
+        withAnswers: !!(els.chkAnswers && els.chkAnswers.checked),
+        withExplanation: !!(currentSettings.exportConfig && currentSettings.exportConfig.withExplanation)
+      });
+      if (!choice) return;
+      const chosen = choice.format;
+      // 记住本次的内容选项，下次打开弹窗沿用。
+      currentSettings.exportConfig = {
+        ...(currentSettings.exportConfig || {}),
+        withExplanation: !!choice.withExplanation
+      };
+      saveSettings(currentSettings);
+      // 若用户在弹窗里换了格式，同步到面板的单选按钮，让后续导出/历史记录保持一致。
+      const radio = document.querySelector(`input[name="xxt-fmt"][value="${chosen}"]`);
+      if (radio) {
+        radio.checked = true;
+        const isWord = chosen === 'word';
+        if (els.bankImportToggle) els.bankImportToggle.style.display = isWord ? '' : 'none';
+        if (!isWord && els.chkBankImport) els.chkBankImport.checked = false;
+        updateFilename(els);
+        syncExtractionOptionState(extractedData);
+      }
+      if (els.chkAnswers) els.chkAnswers.checked = !!choice.withAnswers;
+      await performPanelExport(chosen, exportData, choice);
+    });
+
+    async function performPanelExport(fmt, exportData, choice = {}) {
+      const withExplanation = !!choice.withExplanation;
+      const baseFilename = (els.filename.value || '学习通题目').replace(/\.(txt|md|docx|pdf|json)$/i, '');
+
+      if (fmt === 'json') {
+        els.btnDownload.disabled = true;
+        els.btnDownload.textContent = '导出中...';
+        try {
+          const withAnswers = !!(els.chkAnswers && els.chkAnswers.checked);
+          const payload = {
+            schemaVersion: 1,
+            exportedAt: new Date().toISOString(),
+            banks: [{
+              name: exportData.title || '学习通题目',
+              typeOrder: exportData.typeOrder,
+              results: exportData.results
+            }]
+          };
+          if (withAnswers) {
+            // 含答案选项已体现在 results 里，JSON 默认就是全量。
+            payload.note = '题目与答案已完整导出';
+          }
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = baseFilename + '.json'; a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          showStatus(els, 'JSON 题库已下载，可在题库区“导入题库”重新导入', 'ok');
+        } catch (error) {
+          showStatus(els, 'JSON 导出失败: ' + (error && error.message ? error.message : error), 'err');
+        } finally {
+          els.btnDownload.disabled = false;
+          els.btnDownload.textContent = '\u21E9 下载';
+        }
+        return;
+      }
 
       if (fmt === 'pdf') {
         els.btnDownload.disabled = true;
@@ -10870,7 +13491,7 @@ Typr["U"] = {
             ? shuffleQuestions(exportData.results, exportData.typeOrder)
             : exportData.results;
           await generatePdf(activeResults, exportData.typeOrder, exportData.title,
-            !!(els.chkAnswers && els.chkAnswers.checked), withWrong, baseFilename + '.pdf');
+            !!(els.chkAnswers && els.chkAnswers.checked), withWrong, baseFilename + '.pdf', withExplanation);
           showStatus(els, 'PDF 已下载', 'ok');
           addToHistory(exportData, 'pdf', !!(els.chkAnswers && els.chkAnswers.checked), withWrong, doShuffle, isBankImport, '');
         } catch (err) {
@@ -10897,7 +13518,7 @@ Typr["U"] = {
           await new Promise(resolve => setTimeout(resolve, 0));
           const blob = await generateWordBlob(
             activeResults, exportData.typeOrder, exportData.title,
-            isBankImport || !!els.chkAnswers.checked, withWrong, isBankImport
+            isBankImport || !!els.chkAnswers.checked, withWrong, isBankImport, withExplanation
           );
           const filename = baseFilename + '.docx';
           const url = URL.createObjectURL(blob);
@@ -10920,7 +13541,7 @@ Typr["U"] = {
       const mime = fmt === 'md' ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8';
 
       // 合并下载
-      const text = getOutputText(els, exportData);
+      const text = getOutputText(els, exportData, { withExplanation });
       const filename = baseFilename + ext;
       const blob = new Blob([text], { type: mime });
       const url = URL.createObjectURL(blob);
@@ -10930,7 +13551,7 @@ Typr["U"] = {
       a.click();
       URL.revokeObjectURL(url);
       addToHistory(exportData, fmt, els.chkAnswers.checked, els.chkWrong && els.chkWrong.checked, els.chkShuffle && els.chkShuffle.checked, false, text);
-    });
+    }
 
     els.btnPreview.addEventListener('click', () => openExportPreview(els));
 
@@ -10946,7 +13567,9 @@ Typr["U"] = {
         showStatus(els, `${fmt === 'pdf' ? 'PDF' : 'Word'} 格式不支持复制，请使用下载`, 'warn');
         return;
       }
-      const text = getOutputText(els, exportData);
+      const text = getOutputText(els, exportData, {
+        withExplanation: !!(els.chkExplanation && els.chkExplanation.checked)
+      });
       try {
         await navigator.clipboard.writeText(text);
       } catch (err) {
@@ -11095,22 +13718,32 @@ Typr["U"] = {
     els.status.classList.remove('xxt-hidden');
   }
 
-  function getOutputText(els, data = getSelectedExtractedData()) {
+  function getOutputText(els, data = getSelectedExtractedData(), options = {}) {
     if (!data || !hasQuestions(data)) return '';
     const fmt = getFormat(els);
     const withAnswers = els.chkAnswers.checked;
     const withWrong = els.chkWrong && els.chkWrong.checked;
     const doShuffle = els.chkShuffle && els.chkShuffle.checked;
+    const withExplanation = options.withExplanation != null
+      ? !!options.withExplanation
+      : !!(els.chkExplanation && els.chkExplanation.checked);
+
+    // 带解析时缓存不可复用（缓存里没有解析），一律现场生成。
+    const canUseCache = !withExplanation && !doShuffle;
 
     // 打乱时所有正文、答案和错题汇总均使用同一份结果，避免序号/顺序不一致。
     let base = '';
     let activeResults = data.results;
-    if (doShuffle) {
-      activeResults = shuffleQuestions(data.results, data.typeOrder);
+    if (!canUseCache) {
+      if (doShuffle) activeResults = shuffleQuestions(data.results, data.typeOrder);
       if (fmt === 'md') {
-        base = withAnswers ? formatOutputWithAnswersMD(activeResults, data.typeOrder) : formatOutputMD(activeResults, data.typeOrder);
+        base = withAnswers
+          ? formatOutputWithAnswersMD(activeResults, data.typeOrder, withExplanation)
+          : formatOutputMD(activeResults, data.typeOrder, false, withExplanation);
       } else {
-        base = withAnswers ? formatOutputWithAnswers(activeResults, data.typeOrder) : formatOutput(activeResults, data.typeOrder);
+        base = withAnswers
+          ? formatOutputWithAnswers(activeResults, data.typeOrder, withExplanation)
+          : formatOutput(activeResults, data.typeOrder, false, withExplanation);
       }
     } else {
       if (fmt === 'md') {
@@ -11163,9 +13796,6 @@ Typr["U"] = {
     isInIframe = window.top !== window.self; 
   } 
   catch(e) { isInIframe = true; }
-
-  let initTimer = null;
-  let observer = null;
 
   // 脚本在 document-start 注入时，document.body 还可能不存在。直接把
   // MutationObserver 挂到空 body 会抛错并中断后续初始化，统一等待 body 就绪。
