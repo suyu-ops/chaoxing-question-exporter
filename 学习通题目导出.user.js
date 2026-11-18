@@ -2,7 +2,7 @@
 // @name         学习通-随堂测验/章节测试/作业/考试题目一键提取导出pdf/word/txt/markdown格式文档
 // @namespace    https://tiku888.top/
 // @license      GPL-3.0
-// @version      1.10.1
+// @version      1.11.0
 // @run-at       document-start
 // @description  一键提取学习通作业题目，支持富文本（图文混排）及 Word/PDF/TXT/MD 四种格式导出、按课程任务点自动逐个提取章节测验、题目勾选后按范围导出，答案/错题收集，独立题库区（新建/存取/编辑/手动添加/导入/四种格式导出/题库对比），暗色模式，快捷键，iframe 提取
 // @author       suyu
@@ -2985,17 +2985,29 @@ Typr["U"] = {
   const css = `
 /* ============ 设计变量（浅色） ============ */
 #xxt-panel, #xxt-settings-modal, #xxt-history-modal, #xxt-editor-modal, #xxt-bank-modal, #xxt-save-bank-modal, #xxt-batch-modal, #xxt-preview-modal, #xxt-batch-progress-card {
-  --xxt-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
-  --xxt-grad-soft: linear-gradient(135deg, rgba(99,102,241,0.10) 0%, rgba(236,72,153,0.10) 100%);
-  --xxt-accent: #5b3ad8;
-  --xxt-accent-strong: #4a2dc7;
+  /* 主色：violet 600 → indigo 500；辅助蓝 600 用于题库区；AI 紫 600 用于 AI 面板。 */
+  --xxt-grad: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+  --xxt-grad-soft: linear-gradient(135deg, rgba(124,58,237,0.09) 0%, rgba(99,102,241,0.07) 100%);
+  --xxt-accent: #6d28d9;
+  --xxt-accent-strong: #5b21b6;
+  --xxt-indigo: #4f46e5;
+  --xxt-blue: #2563eb;
+  --xxt-blue-soft: #eff6ff;
+  --xxt-ai: #9333ea;
+  --xxt-ai-grad: linear-gradient(120deg, rgba(250,245,255,0.95) 0%, rgba(238,242,255,0.75) 50%, rgba(239,246,255,0.85) 100%);
+  --xxt-emerald: #059669;
   --xxt-surface: #ffffff;
   --xxt-surface-solid: #ffffff;
-  --xxt-border: #e5e7eb;
-  --xxt-shadow: 0 20px 48px -12px rgba(49,46,129,0.22), 0 8px 18px -8px rgba(15,23,42,0.10);
-  --xxt-text: #111827;
-  --xxt-text-soft: #4b5563;
-  --xxt-radius: 18px;
+  --xxt-surface-soft: #f8fafc;
+  --xxt-border: #e2e8f0;
+  --xxt-border-soft: #eef2f7;
+  --xxt-shadow: 0 24px 56px -16px rgba(15,23,42,0.24), 0 8px 20px -12px rgba(15,23,42,0.12);
+  --xxt-shadow-card: 0 4px 20px -2px rgba(100,116,139,0.10), 0 2px 6px -1px rgba(100,116,139,0.05);
+  --xxt-text: #0f172a;
+  --xxt-text-soft: #64748b;
+  --xxt-text-mute: #94a3b8;
+  --xxt-radius: 20px;
+  --xxt-ring: 0 0 0 3px rgba(124,58,237,0.16);
 }
 /* 全局字体与渲染优化 */
 #xxt-panel, #xxt-settings-modal, #xxt-history-modal, #xxt-editor-modal, #xxt-bank-modal, #xxt-save-bank-modal, #xxt-batch-modal, #xxt-preview-modal, #xxt-batch-progress-card {
@@ -3003,117 +3015,219 @@ Typr["U"] = {
   -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
 }
 
-/* ===== 固定显示的主面板（毛玻璃） ===== */
+/* ===== 固定显示的主面板 =====
+ * 采用「固定头 + 独立滚动体 + 常驻底部操作栏」三段式布局：
+ * 面板本身不滚动，只有 .xxt-scroll 滚动，底部三个输出按钮始终可点。
+ */
 #xxt-panel {
   position: fixed; top: 72px; right: 20px; z-index: 99999;
-  width: min(384px, calc(100vw - 16px)); box-sizing: border-box;
+  width: min(376px, calc(100vw - 16px)); box-sizing: border-box;
   background: #ffffff;
   backdrop-filter: blur(24px) saturate(160%);
   -webkit-backdrop-filter: blur(24px) saturate(160%);
   border: 1px solid var(--xxt-border);
-  border-radius: 22px;
+  border-radius: var(--xxt-radius);
   box-shadow: var(--xxt-shadow);
-  padding: 22px 20px 20px;
+  padding: 0;
   font-size: 13px; color: var(--xxt-text);
-  max-height: calc(100vh - 16px); overflow-y: auto;
+  max-height: calc(100vh - 96px);
+  display: flex; flex-direction: column; overflow: hidden;
 }
-#xxt-panel::-webkit-scrollbar { width: 6px; }
-#xxt-panel::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #c4b5fd, #f0abfc);
-  border-radius: 6px; border: 1px solid transparent;
-  background-clip: padding-box;
+#xxt-panel .xxt-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  padding: 12px 12px 10px; display: flex; flex-direction: column;
 }
-#xxt-panel::-webkit-scrollbar-track { background: transparent; }
+#xxt-panel .xxt-scroll::-webkit-scrollbar { width: 6px; }
+#xxt-panel .xxt-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1; border-radius: 999px;
+}
+#xxt-panel .xxt-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+#xxt-panel .xxt-scroll::-webkit-scrollbar-track { background: transparent; }
+/* 底部常驻操作栏：结果为空时自动隐藏（依赖 :has 与现有 .xxt-hidden 开关同步） */
+#xxt-panel .xxt-panel-footer {
+  flex: 0 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px;
+  padding: 9px 12px 11px; border-top: 1px solid var(--xxt-border-soft);
+  background: #ffffff;
+}
+#xxt-panel:has(#xxt-result.xxt-hidden) .xxt-panel-footer { display: none; }
+#xxt-panel .xxt-foot-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  min-height: 37px; padding: 0 8px; border-radius: 11px;
+  border: 1px solid var(--xxt-border); background: #f1f5f9; color: #334155;
+  font: 800 12px/1.2 inherit; cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, transform .12s ease;
+}
+#xxt-panel .xxt-foot-btn::before {
+  content: ''; width: 14px; height: 14px; flex: 0 0 14px; background: currentColor;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-position: center; mask-position: center;
+  -webkit-mask-size: 14px 14px; mask-size: 14px 14px;
+}
+#xxt-panel #xxt-btnPreview::before {
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z'/%3E%3Ccircle cx='12' cy='12' r='2.6'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z'/%3E%3Ccircle cx='12' cy='12' r='2.6'/%3E%3C/svg%3E");
+}
+#xxt-panel #xxt-btnDownload {
+  border-color: transparent; background: var(--xxt-grad); color: #fff;
+  box-shadow: 0 6px 14px -6px rgba(124,58,237,.62);
+}
+#xxt-panel #xxt-btnDownload::before {
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v11'/%3E%3Cpath d='M7.5 10.5 12 15l4.5-4.5'/%3E%3Cpath d='M4 19h16'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v11'/%3E%3Cpath d='M7.5 10.5 12 15l4.5-4.5'/%3E%3Cpath d='M4 19h16'/%3E%3C/svg%3E");
+}
+#xxt-panel #xxt-btnCopy::before {
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='9' width='11' height='11' rx='2.5'/%3E%3Cpath d='M15 5.5A2.5 2.5 0 0 0 12.5 3h-6A3.5 3.5 0 0 0 3 6.5v6A2.5 2.5 0 0 0 5.5 15'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='9' width='11' height='11' rx='2.5'/%3E%3Cpath d='M15 5.5A2.5 2.5 0 0 0 12.5 3h-6A3.5 3.5 0 0 0 3 6.5v6A2.5 2.5 0 0 0 5.5 15'/%3E%3C/svg%3E");
+}
+#xxt-panel .xxt-foot-btn:hover { background: #e2e8f0; border-color: #cbd5e1; }
+#xxt-panel #xxt-btnDownload:hover {
+  background: linear-gradient(135deg, #6d28d9 0%, #4f46e5 100%);
+  box-shadow: 0 9px 18px -6px rgba(124,58,237,.72);
+}
+#xxt-panel .xxt-foot-btn:active { transform: scale(.97); }
+#xxt-panel .xxt-foot-btn:disabled { opacity: .58; cursor: not-allowed; transform: none; }
 /* ===== 标题栏 ===== */
 #xxt-panel .xxt-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 16px; padding-bottom: 14px;
-  border-bottom: 1px solid var(--xxt-border);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  flex: 0 0 auto;
+  margin: 0; padding: 11px 12px 10px;
+  border-bottom: 1px solid var(--xxt-border-soft);
+  background: rgba(255,255,255,.86);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-radius: var(--xxt-radius) var(--xxt-radius) 0 0;
   cursor: move; user-select: none;
 }
+#xxt-panel .xxt-brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+#xxt-panel .xxt-brand-icon {
+  width: 30px; height: 30px; flex: 0 0 30px; border-radius: 10px;
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(135deg, #a78bfa 0%, #818cf8 100%);
+  box-shadow: 0 5px 12px -6px rgba(124,58,237,.72), inset 0 1px 0 rgba(255,255,255,.4);
+}
+#xxt-panel .xxt-brand-icon svg { width: 16px; height: 16px; display: block; }
 #xxt-panel .xxt-header h3 {
-  font-size: 16px; font-weight: 800; color: var(--xxt-text);
-  margin: 0; letter-spacing: 0.3px;
-  background: var(--xxt-grad);
+  font-size: 13.5px; font-weight: 800; color: var(--xxt-text);
+  margin: 0; letter-spacing: .1px; line-height: 1.3; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+  background: linear-gradient(135deg, #5b21b6 0%, #4338ca 55%, #2563eb 100%);
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+#xxt-panel .xxt-header-tools { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
 #xxt-panel .xxt-bank-entry {
-  width: 100%; min-height: 68px; margin: -3px 0 14px; padding: 10px 13px;
-  border: 1px solid rgba(124,92,240,0.24); border-radius: 16px;
-  background: var(--xxt-grad-soft); color: var(--xxt-text); cursor: pointer;
-  display: flex; align-items: center; gap: 11px; text-align: left;
-  font-family: inherit; transition: all 0.24s cubic-bezier(.4,0,.2,1);
-  box-shadow: 0 6px 16px -11px rgba(91,58,216,0.45);
+  width: 100%; min-height: 56px; margin: 0 0 8px; padding: 9px 11px;
+  border: 1px solid #ede9fe; border-radius: 14px;
+  background: #ffffff; color: var(--xxt-text); cursor: pointer;
+  display: flex; align-items: center; gap: 10px; text-align: left;
+  font-family: inherit; box-shadow: var(--xxt-shadow-card);
+  transition: background .2s ease, border-color .2s ease, transform .12s ease;
 }
 #xxt-panel .xxt-bank-entry:hover {
-  border-color: rgba(124,92,240,0.52); transform: translateY(-2px);
-  box-shadow: 0 13px 24px -12px rgba(91,58,216,0.55); filter: saturate(1.08);
+  border-color: #ddd6fe; transform: translateY(-1px);
+  background: linear-gradient(90deg, #ffffff 0%, rgba(245,243,255,.75) 100%);
 }
-#xxt-panel .xxt-bank-entry:active { transform: translateY(0) scale(0.99); }
-#xxt-panel .xxt-bank-entry:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(124,92,240,0.20); }
+#xxt-panel .xxt-bank-entry:active { transform: scale(.99); }
+#xxt-panel .xxt-bank-entry:focus-visible { outline: none; box-shadow: var(--xxt-ring); }
 #xxt-panel .xxt-bank-entry-icon {
-  width: 42px; height: 42px; flex: 0 0 42px; border-radius: 13px;
-  display: flex; align-items: center; justify-content: center; font-size: 22px;
-  background: #fff; box-shadow: 0 6px 12px -8px rgba(91,58,216,0.55);
+  width: 36px; height: 36px; flex: 0 0 36px; border-radius: 11px;
+  display: grid; place-items: center; font-size: 0; color: #fff;
+  background: linear-gradient(135deg, #a78bfa 0%, #818cf8 100%);
+  box-shadow: 0 6px 14px -8px rgba(124,58,237,.86);
 }
+#xxt-panel .xxt-bank-entry-icon svg { width: 18px; height: 18px; display: block; }
 #xxt-panel .xxt-bank-entry-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 2px; }
-#xxt-panel .xxt-bank-entry-copy strong { font-size: 14px; line-height: 1.3; font-weight: 800; color: var(--xxt-accent-strong); }
-#xxt-panel .xxt-bank-entry-copy small { font-size: 11px; line-height: 1.4; color: var(--xxt-text-soft); font-weight: 600; }
-#xxt-panel .xxt-bank-entry-arrow { font-size: 24px; line-height: 1; color: var(--xxt-accent); transition: transform 0.22s ease; }
-#xxt-panel .xxt-bank-entry:hover .xxt-bank-entry-arrow { transform: translateX(3px); }
+#xxt-panel .xxt-bank-entry-copy strong {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 13px; line-height: 1.3; font-weight: 800; color: var(--xxt-text);
+}
+#xxt-panel .xxt-bank-entry-copy strong em {
+  font-style: normal; font-size: 9.5px; font-weight: 700; letter-spacing: .02em;
+  padding: 1px 5px; border-radius: 5px;
+  background: rgba(237,233,254,.9); color: #6d28d9;
+}
+#xxt-panel .xxt-bank-entry-copy small { font-size: 10.5px; line-height: 1.4; color: var(--xxt-text-soft); font-weight: 600; }
+#xxt-panel .xxt-bank-entry-arrow { font-size: 0; width: 14px; height: 14px; flex: 0 0 14px; color: #cbd5e1; transition: transform .18s ease, color .18s ease; }
+#xxt-panel .xxt-bank-entry-arrow::before {
+  content: ''; display: block; width: 14px; height: 14px; background: currentColor;
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 5 7 7-7 7'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 5 7 7-7 7'/%3E%3C/svg%3E");
+  -webkit-mask-size: 14px 14px; mask-size: 14px 14px;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center;
+}
+#xxt-panel .xxt-bank-entry:hover .xxt-bank-entry-arrow { color: #8b5cf6; transform: translateX(2px); }
 /* ===== 星夜题库资源入口 ===== */
 #xxt-panel .xxt-tiku-promo {
-  margin: 0 0 10px; padding: 9px 10px;
-  border: 1px solid rgba(14,165,233,.28); border-radius: 14px;
-  background: linear-gradient(135deg, rgba(14,165,233,.09), rgba(16,185,129,.08));
-  box-shadow: 0 7px 18px -14px rgba(14,116,144,.52);
+  margin: 0 0 8px; padding: 9px 10px;
+  border: 1px solid #e0f2fe; border-radius: 14px;
+  background: linear-gradient(180deg, rgba(240,249,255,.85) 0%, rgba(238,242,255,.5) 55%, #ffffff 100%);
+  box-shadow: var(--xxt-shadow-card);
 }
 #xxt-panel .xxt-tiku-promo-top { display:flex; align-items:center; gap:8px; min-width:0; }
 #xxt-panel .xxt-tiku-promo-icon {
   width:30px; height:30px; flex:0 0 30px; border-radius:10px;
-  display:grid; place-items:center; background:#fff; color:#0284c7; font-size:16px;
-  box-shadow:0 5px 11px -8px rgba(2,132,199,.65);
+  display:grid; place-items:center; color:#fff; font-size:14px;
+  background: linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%);
+  box-shadow:0 5px 11px -8px rgba(37,99,235,.8);
 }
 #xxt-panel .xxt-tiku-promo-copy { display:flex; flex:1; min-width:0; flex-direction:column; gap:1px; }
-#xxt-panel .xxt-tiku-promo-copy strong { color:#0369a1; font-size:12.5px; line-height:1.3; font-weight:800; }
-#xxt-panel .xxt-tiku-promo-copy small { color:#52708a; font-size:10px; line-height:1.35; font-weight:600; }
-#xxt-panel .xxt-tiku-promo-actions { display:flex; gap:6px; margin-top:8px; }
-#xxt-panel .xxt-tiku-promo-link {
-  display:inline-flex; align-items:center; justify-content:center; min-height:27px; flex:1;
-  padding:0 8px; border:1px solid rgba(2,132,199,.52); border-radius:9px;
-  color:#0369a1; background:rgba(255,255,255,.68); text-decoration:none;
-  font-size:10.5px; font-weight:800; line-height:1; transition:all .2s ease;
+#xxt-panel .xxt-tiku-promo-copy strong { color:#0f172a; font-size:12px; line-height:1.3; font-weight:800; }
+#xxt-panel .xxt-tiku-promo-copy small { color:var(--xxt-text-soft); font-size:9.5px; line-height:1.35; font-weight:600; }
+#xxt-panel .xxt-tiku-promo-actions {
+  display:grid; grid-template-columns:1fr 1fr; gap:6px;
+  margin-top:7px; padding-top:6px; border-top:1px solid #f1f5f9;
 }
-#xxt-panel .xxt-tiku-promo-link:hover { transform:translateY(-1px); background:#0284c7; border-color:#0284c7; color:#fff; box-shadow:0 7px 14px -8px rgba(2,132,199,.68); }
-#xxt-panel .xxt-tiku-promo-link:focus-visible { outline:none; box-shadow:0 0 0 3px rgba(14,165,233,.24); }
-/* ===== 提取按钮（渐变主按钮） ===== */
+#xxt-panel .xxt-tiku-promo-link {
+  display:inline-flex; align-items:center; justify-content:center; min-height:26px;
+  padding:0 8px; border:1px solid #e2e8f0; border-radius:9px;
+  color:#475569; background:#fff; text-decoration:none;
+  font-size:10px; font-weight:800; line-height:1; transition:all .18s ease;
+}
+#xxt-panel .xxt-tiku-promo-link:hover { color:#2563eb; border-color:#bfdbfe; background:#eff6ff; }
+#xxt-panel .xxt-tiku-promo-link:focus-visible { outline:none; box-shadow:0 0 0 3px rgba(37,99,235,.18); }
+/* ===== 主操作按钮（提取 / 整门课） ===== */
+#xxt-panel .xxt-primary-actions { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin:0 0 8px; }
 #xxt-panel .xxt-btn-extract {
-  display: block; width: 100%; padding: 13px; border: none;
-  border-radius: 14px; font-size: 14.5px; font-weight: 700; cursor: pointer;
-  margin-bottom: 12px; transition: all 0.28s cubic-bezier(.4,0,.2,1);
-  background: var(--xxt-grad); color: #fff;
-  box-shadow: 0 10px 22px -8px rgba(124,92,240,0.55);
-  letter-spacing: 1.5px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  width: 100%; min-height: 40px; padding: 0 8px; border: none;
+  border-radius: 12px; font-size: 12.5px; font-weight: 800; cursor: pointer;
+  margin: 0; transition: all .2s cubic-bezier(.4,0,.2,1);
+  background: var(--xxt-grad); color: #fff; letter-spacing: .2px;
+  box-shadow: 0 6px 16px -6px rgba(124,58,237,.58);
+}
+#xxt-panel .xxt-btn-extract::before {
+  content: ''; width: 14px; height: 14px; flex: 0 0 14px; background: currentColor;
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 11A8 8 0 0 0 6.3 6.3L3 9.5'/%3E%3Cpath d='M3 4v5.5h5.5'/%3E%3Cpath d='M4 13a8 8 0 0 0 13.7 4.7L21 14.5'/%3E%3Cpath d='M21 20v-5.5h-5.5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 11A8 8 0 0 0 6.3 6.3L3 9.5'/%3E%3Cpath d='M3 4v5.5h5.5'/%3E%3Cpath d='M4 13a8 8 0 0 0 13.7 4.7L21 14.5'/%3E%3Cpath d='M21 20v-5.5h-5.5'/%3E%3C/svg%3E");
+  -webkit-mask-size: 14px 14px; mask-size: 14px 14px;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center;
 }
 #xxt-panel .xxt-btn-extract:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 16px 30px -8px rgba(124,92,240,0.7);
-  filter: brightness(1.05);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px -6px rgba(124,58,237,.7);
+  background: linear-gradient(135deg, #6d28d9 0%, #4f46e5 100%);
 }
-#xxt-panel .xxt-btn-extract:active { transform: translateY(0) scale(0.98); }
+#xxt-panel .xxt-btn-extract:active { transform: scale(.98); }
 #xxt-panel .xxt-btn-extract:disabled {
-  background: linear-gradient(135deg,#cbd5e1,#cbd5e1);
+  background: #e2e8f0; color: #94a3b8;
   box-shadow: none; cursor: not-allowed; transform: none; filter: none;
 }
 #xxt-panel .xxt-btn-batch {
-  width: 100%; padding: 10px 12px; margin: -3px 0 12px; border-radius: 13px;
-  border: 1.5px dashed rgba(91,58,216,.54); background: rgba(124,92,240,.055);
-  color: var(--xxt-accent-strong); cursor: pointer; font: 700 12.5px/1.35 inherit;
-  transition: all .22s ease;
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  width: 100%; min-height: 40px; padding: 0 8px; margin: 0; border-radius: 12px;
+  border: 1px solid rgba(196,181,253,.9); background: #ffffff;
+  color: #6d28d9; cursor: pointer; font: 800 12.5px/1.25 inherit;
+  letter-spacing: .2px; transition: background .2s ease, border-color .2s ease, transform .12s ease;
 }
-#xxt-panel .xxt-btn-batch:hover { background: var(--xxt-grad-soft); border-style: solid; transform: translateY(-1px); box-shadow: 0 9px 18px -12px rgba(91,58,216,.6); }
-#xxt-panel .xxt-btn-batch:disabled { cursor: not-allowed; opacity: .52; transform: none; box-shadow: none; }
+#xxt-panel .xxt-btn-batch::before {
+  content: ''; width: 14px; height: 14px; flex: 0 0 14px; background: #7c3aed;
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3.5h9.5L19 7v13.5H6z'/%3E%3Cpath d='M9 11h7'/%3E%3Cpath d='M9 15h5'/%3E%3Cpath d='M4 6v15h11'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3.5h9.5L19 7v13.5H6z'/%3E%3Cpath d='M9 11h7'/%3E%3Cpath d='M9 15h5'/%3E%3Cpath d='M4 6v15h11'/%3E%3C/svg%3E");
+  -webkit-mask-size: 14px 14px; mask-size: 14px 14px;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center;
+}
+#xxt-panel .xxt-btn-batch:hover { background: rgba(245,243,255,.8); border-color: #a78bfa; transform: translateY(-1px); }
+#xxt-panel .xxt-btn-batch:active { transform: scale(.98); }
+#xxt-panel .xxt-btn-batch:disabled { cursor: not-allowed; opacity: .52; transform: none; }
 
 /* ===== 整门课提取进度（主面板内） ===== */
 #xxt-panel .xxt-batch-live {
@@ -3149,78 +3263,122 @@ Typr["U"] = {
 
 /* ===== 状态提示（药丸标签） ===== */
 #xxt-panel .xxt-status {
-  text-align: center; padding: 10px 14px; font-size: 12.5px;
-  margin-bottom: 12px; border-radius: 12px; font-weight: 600;
-  letter-spacing: 0.3px;
+  position: relative;
+  display: flex; align-items: center;
+  text-align: left; padding: 8px 10px 8px 32px; font-size: 11.5px;
+  margin: 0 0 8px; border-radius: 10px; font-weight: 700;
+  letter-spacing: 0;
 }
-.xxt-status-ok { color: #047857; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); }
-.xxt-status-loading { color: #2563eb; background: rgba(59,130,246,0.10); border: 1px solid rgba(59,130,246,0.22); }
-.xxt-status-err { color: #dc2626; background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.22); }
-.xxt-status-warn { color: #b45309; background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.25); }
+/* 左侧实心圆 + 白色图标，和「成功提取」通知条的视觉一致。 */
+#xxt-panel .xxt-status::before {
+  content: ''; position: absolute; left: 9px; top: 50%; margin-top: -8px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: currentColor;
+}
+#xxt-panel .xxt-status::after {
+  content: ''; position: absolute; left: 9px; top: 50%; margin-top: -8px;
+  width: 16px; height: 16px; background: #fff;
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6.5 9.2 17.3 4 12.1'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6.5 9.2 17.3 4 12.1'/%3E%3C/svg%3E");
+  -webkit-mask-size: 11px 11px; mask-size: 11px 11px;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center;
+}
+#xxt-panel .xxt-status-loading::before {
+  background: transparent; border: 2px solid currentColor; border-right-color: transparent;
+  box-sizing: border-box; animation: xxt-spin 0.9s linear infinite;
+}
+#xxt-panel .xxt-status-loading::after { display: none; }
+#xxt-panel .xxt-status-err::after, #xxt-panel .xxt-status-warn::after {
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.2' stroke-linecap='round'%3E%3Cpath d='M12 7.5v5.5'/%3E%3Cpath d='M12 17h.01'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.2' stroke-linecap='round'%3E%3Cpath d='M12 7.5v5.5'/%3E%3Cpath d='M12 17h.01'/%3E%3C/svg%3E");
+  -webkit-mask-size: 12px 12px; mask-size: 12px 12px;
+}
+@keyframes xxt-spin { to { transform: rotate(360deg); } }
+.xxt-status-ok { color: #047857; background: rgba(16,185,129,0.10); border: 1px solid rgba(16,185,129,0.24); }
+.xxt-status-loading { color: #2563eb; background: rgba(59,130,246,0.09); border: 1px solid rgba(59,130,246,0.22); }
+.xxt-status-err { color: #dc2626; background: rgba(239,68,68,0.09); border: 1px solid rgba(239,68,68,0.22); }
+.xxt-status-warn { color: #b45309; background: rgba(245,158,11,0.11); border: 1px solid rgba(245,158,11,0.25); }
 
-/* ===== 统计卡片（渐变描边） ===== */
+/* ===== 统计卡片（双列，数字 + 水印） ===== */
 #xxt-panel .xxt-stat {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px;
-  margin: 14px 0 16px;
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px;
+  margin: 0 0 8px;
 }
 #xxt-panel .xxt-stat-item {
-  text-align: center; padding: 12px 4px 9px;
-  background: var(--xxt-surface-solid); border-radius: 14px;
-  border: 1px solid var(--xxt-border);
-  box-shadow: 0 4px 12px -6px rgba(15,23,42,0.12);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  position: relative; overflow: hidden;
+  text-align: center; padding: 9px 6px 8px;
+  background: var(--xxt-surface-solid); border-radius: 12px;
+  border: 1px solid var(--xxt-border-soft);
+  box-shadow: var(--xxt-shadow-card);
+  transition: transform .18s ease, border-color .18s ease;
 }
-#xxt-panel .xxt-stat-item:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 20px -8px rgba(124,92,240,0.4);
-}
+#xxt-panel .xxt-stat-item:hover { transform: translateY(-1px); border-color: #ddd6fe; }
 #xxt-panel .xxt-stat-item .xxt-num {
-  font-size: 23px; font-weight: 800; line-height: 1.15;
+  font-size: 20px; font-weight: 900; line-height: 1.1;
+  letter-spacing: -.02em;
   background: var(--xxt-grad);
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 #xxt-panel .xxt-stat-item .xxt-label {
-  font-size: 11px; color: #4b5563; margin-top: 3px; font-weight: 600;
+  font-size: 10.5px; color: var(--xxt-text-soft); margin-top: 2px; font-weight: 700;
 }
+/* 右上角超大浅色水印，对应设计稿里的 # / ? 装饰 */
+#xxt-panel .xxt-stat-item::after {
+  content: '#'; position: absolute; right: -4px; bottom: -10px;
+  font-size: 34px; font-weight: 900; line-height: 1;
+  color: rgba(124,58,237,.06); pointer-events: none;
+}
+#xxt-panel .xxt-stat-item:nth-child(2n)::after { content: '?'; color: rgba(79,70,229,.06); }
 
 /* ===== 分隔区块（柔和卡片） ===== */
 #xxt-panel .xxt-section {
-  background: var(--xxt-surface-solid); border-radius: 16px; padding: 14px 16px;
-  border: 1px solid var(--xxt-border); margin-top: 12px;
-  box-shadow: 0 4px 14px -8px rgba(15,23,42,0.08);
+  background: var(--xxt-surface-solid); border-radius: 12px; padding: 9px 10px;
+  border: 1px solid var(--xxt-border-soft); margin-top: 8px;
+  box-shadow: none;
 }
 
 /* ===== 文件名输入 ===== */
 #xxt-panel .xxt-filename {
-  width: 100%; padding: 11px 14px; border: 1.5px solid var(--xxt-border);
-  border-radius: 12px; font-size: 12.5px; color: var(--xxt-text);
-  box-sizing: border-box; outline: none; transition: all 0.22s ease;
-  background: #fff;
+  width: 100%; padding: 8px 10px; border: 1px solid var(--xxt-border);
+  border-radius: 9px; font-size: 11px; color: var(--xxt-text);
+  box-sizing: border-box; outline: none; transition: all .18s ease;
+  background: var(--xxt-surface-soft);
 }
 #xxt-panel .xxt-filename::placeholder { color: #b6bcc8; }
 #xxt-panel .xxt-filename:focus {
-  border-color: var(--xxt-accent);
-  box-shadow: 0 0 0 4px rgba(124,92,240,0.14);
+  border-color: #a78bfa; background: #fff;
+  box-shadow: var(--xxt-ring);
 }
 
-/* ===== 格式选择（胶囊分段） ===== */
+/* ===== 格式选择（四宫格分段） ===== */
 #xxt-panel .xxt-format-row {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px;
-  font-size: 12.5px; color: #4b5563; font-weight: 600;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;
+  margin-top: 8px; font-size: 11px; color: var(--xxt-text-soft); font-weight: 700;
+}
+#xxt-panel .xxt-format-row > span {
+  grid-column: 1 / -1; margin-bottom: 1px;
+  font-size: 9.5px; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--xxt-text-mute);
 }
 #xxt-panel .xxt-format-row label {
-  cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
-  padding: 6px 16px; border-radius: 20px; border: 1.5px solid var(--xxt-border);
-  background: #fff; transition: all 0.22s cubic-bezier(.4,0,.2,1); font-size: 12px;
+  position: relative; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 30px; padding: 4px 3px; border-radius: 9px;
+  border: 1px solid var(--xxt-border); background: #f8fafc;
+  color: var(--xxt-text-soft); text-align: center;
+  font-size: 10.5px; font-weight: 800; white-space: nowrap;
+  transition: all .16s cubic-bezier(.4,0,.2,1);
 }
-#xxt-panel .xxt-format-row label:hover { border-color: rgba(124,92,240,0.4); transform: translateY(-1px); }
+#xxt-panel .xxt-format-row label:hover { background: #f1f5f9; border-color: #cbd5e1; }
 #xxt-panel .xxt-format-row input[type="radio"] {
-  width: 14px; height: 14px; cursor: pointer; accent-color: var(--xxt-accent);
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  margin: 0; opacity: 0; cursor: pointer; accent-color: transparent;
+  -webkit-appearance: none; appearance: none; pointer-events: none;
 }
 #xxt-panel .xxt-format-row label:has(input:checked) {
   color: #fff; border-color: transparent; background: var(--xxt-grad);
-  box-shadow: 0 6px 14px -6px rgba(124,92,240,0.6);
+  box-shadow: 0 4px 10px -5px rgba(124,58,237,.75);
 }
 
 /* ===== 操作按钮组 ===== */
@@ -3232,46 +3390,114 @@ Typr["U"] = {
   transition: all 0.24s ease;
 }
 #xxt-panel .xxt-selection-summary {
-  margin: -2px 0 11px; padding: 8px 10px; border-radius: 10px;
-  background: rgba(15,23,42,.035); color: var(--xxt-text-soft); font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; gap: 5px;
+  margin: 0 0 8px; padding: 6px 9px; border-radius: 9px;
+  background: #f1f5f9; color: var(--xxt-text-soft);
+  font-size: 10.5px; font-weight: 700; line-height: 1.4;
 }
-#xxt-panel .xxt-selection-summary.xxt-selection-limited { background: rgba(124,92,240,.10); color: var(--xxt-accent-strong); }
+#xxt-panel .xxt-selection-summary::before {
+  content: ''; width: 11px; height: 11px; flex: 0 0 11px; background: #7c3aed;
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3Cpath d='M12 8v8'/%3E%3Cpath d='M8 12h8'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3Cpath d='M12 8v8'/%3E%3Cpath d='M8 12h8'/%3E%3C/svg%3E");
+  -webkit-mask-size: 11px 11px; mask-size: 11px 11px;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center;
+}
+#xxt-panel .xxt-selection-summary.xxt-selection-limited { background: rgba(124,58,237,.09); color: var(--xxt-accent-strong); }
+/* 未选择任何题目时这一行只有图标，没有可读信息，直接收起。 */
+#xxt-panel .xxt-selection-summary:empty { display: none; }
+#xxt-panel .xxt-result-actions .xxt-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  min-height: 32px; padding: 0 6px !important;
+  border: 1px solid #ddd6fe !important; border-radius: 10px !important;
+  background: #ffffff; color: #6d28d9;
+  font: 800 10.5px/1.25 inherit !important;
+  transition: background .18s ease, border-color .18s ease, transform .12s ease;
+}
+#xxt-panel .xxt-result-actions .xxt-btn:hover { background: rgba(245,243,255,.9); border-color: #a78bfa !important; }
+#xxt-panel .xxt-result-actions .xxt-btn:active { transform: scale(.98); }
 .xxt-btn-outline {
   background: #fff; color: var(--xxt-accent-strong);
   border: 1.5px solid var(--xxt-accent) !important;
 }
 .xxt-btn-outline:hover {
   background: var(--xxt-grad); color: #fff; border-color: transparent !important;
-  box-shadow: 0 8px 18px -8px rgba(124,92,240,0.6); transform: translateY(-1px);
+  box-shadow: 0 8px 18px -8px rgba(124,58,237,0.6); transform: translateY(-1px);
 }
 
 /* ===== 开关选项（复选框） ===== */
 #xxt-panel .xxt-toggle {
-  display: flex; align-items: flex-start; gap: 11px; margin-top: 12px;
-  padding: 12px 14px; border-radius: 14px;
-  background: var(--xxt-surface-solid); border: 1px solid var(--xxt-border);
-  cursor: pointer; transition: all 0.22s ease;
+  display: flex; align-items: center; justify-content: space-between; gap: 9px;
+  margin-top: 6px; padding: 8px 9px; border-radius: 10px;
+  background: #ffffff; border: 1px solid var(--xxt-border-soft);
+  cursor: pointer; transition: background .16s ease, border-color .16s ease;
 }
-#xxt-panel .xxt-toggle:hover { border-color: rgba(124,92,240,0.35); transform: translateX(2px); }
+#xxt-panel .xxt-toggle:hover { background: #f8fafc; border-color: #e2e8f0; }
+/* DOM 顺序是 input → wrap → span，用 order 让文案在左、方块在右。 */
+#xxt-panel .xxt-toggle .xxt-checkbox-wrap { order: 2; }
+#xxt-panel .xxt-toggle span { order: 1; flex: 1; min-width: 0; }
 #xxt-panel .xxt-toggle .xxt-checkbox-wrap {
-  flex-shrink: 0; width: 20px; height: 20px; margin-top: 1px;
-  border: 2px solid #cbd5e1; border-radius: 6px;
+  flex-shrink: 0; width: 17px; height: 17px; margin-top: 0;
+  border: 1.5px solid #cbd5e1; border-radius: 5px;
   display: flex; align-items: center; justify-content: center;
-  transition: all 0.22s cubic-bezier(.34,1.56,.64,1); background: #fff;
+  transition: all .18s cubic-bezier(.34,1.56,.64,1); background: #fff;
 }
 #xxt-panel .xxt-toggle input { display: none; }
 #xxt-panel .xxt-toggle input:checked + .xxt-checkbox-wrap {
   background: var(--xxt-grad); border-color: transparent;
-  box-shadow: 0 4px 10px -3px rgba(124,92,240,0.6);
+  box-shadow: 0 3px 8px -3px rgba(124,58,237,0.6);
 }
 #xxt-panel .xxt-toggle input:checked + .xxt-checkbox-wrap::after {
-  content: ''; width: 5px; height: 10px;
-  border: solid #fff; border-width: 0 2.5px 2.5px 0;
+  content: ''; width: 4px; height: 8px;
+  border: solid #fff; border-width: 0 2px 2px 0;
   transform: rotate(45deg) translateY(-1px);
 }
 #xxt-panel .xxt-toggle span {
-  font-size: 12.5px; color: #1f2937; line-height: 1.5; font-weight: 600;
+  font-size: 11px; color: #334155; line-height: 1.4; font-weight: 700;
 }
+/* 括号里的补充说明：设计稿里用更浅的字重和色阶，避免长文案整体过重 */
+#xxt-panel .xxt-toggle .xxt-toggle-note { color: #94a3b8; font-weight: 500; }
+#xxt-panel .xxt-toggle:has(input:checked) .xxt-toggle-note { color: #a78bfa; }
+/* 行尾图标（乱序 / 解析 / 题库导入）：伪元素插在文案与复选框之间 */
+#xxt-panel #xxt-shuffle-toggle::after,
+#xxt-panel #xxt-explanation-toggle::after,
+#xxt-panel #xxt-bank-import-toggle::after {
+  content: ''; order: 2; flex: 0 0 12px; width: 12px; height: 12px;
+  background: #cbd5e1; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-position: center; mask-position: center;
+  -webkit-mask-size: contain; mask-size: contain;
+  transition: background .16s ease;
+}
+#xxt-panel #xxt-shuffle-toggle .xxt-checkbox-wrap,
+#xxt-panel #xxt-explanation-toggle .xxt-checkbox-wrap,
+#xxt-panel #xxt-bank-import-toggle .xxt-checkbox-wrap { order: 3; }
+#xxt-panel #xxt-shuffle-toggle:has(input:checked)::after,
+#xxt-panel #xxt-explanation-toggle:has(input:checked)::after,
+#xxt-panel #xxt-bank-import-toggle:has(input:checked)::after { background: #a78bfa; }
+#xxt-panel #xxt-shuffle-toggle::after {
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22'/%3E%3Cpath d='m18 2 4 4-4 4'/%3E%3Cpath d='M2 6h1.9c1.5 0 2.9.9 3.6 2.2'/%3E%3Cpath d='M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8'/%3E%3Cpath d='m18 14 4 4-4 4'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22'/%3E%3Cpath d='m18 2 4 4-4 4'/%3E%3Cpath d='M2 6h1.9c1.5 0 2.9.9 3.6 2.2'/%3E%3Cpath d='M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8'/%3E%3Cpath d='m18 14 4 4-4 4'/%3E%3C/svg%3E");
+}
+#xxt-panel #xxt-explanation-toggle::after {
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18h6'/%3E%3Cpath d='M10 22h4'/%3E%3Cpath d='M15.1 14a5 5 0 1 0-6.2 0c.5.4.9 1.1 1 1.8h4.2c.1-.7.5-1.4 1-1.8z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 18h6'/%3E%3Cpath d='M10 22h4'/%3E%3Cpath d='M15.1 14a5 5 0 1 0-6.2 0c.5.4.9 1.1 1 1.8h4.2c.1-.7.5-1.4 1-1.8z'/%3E%3C/svg%3E");
+}
+#xxt-panel #xxt-bank-import-toggle::after {
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 2v6h6'/%3E%3Cpath d='M12 18v-5'/%3E%3Cpath d='m9.5 15.5 2.5 2.5 2.5-2.5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 2v6h6'/%3E%3Cpath d='M12 18v-5'/%3E%3Cpath d='m9.5 15.5 2.5 2.5 2.5-2.5'/%3E%3C/svg%3E");
+}
+/* 附加答案行的「推荐」小徽标（需要压过 .xxt-toggle span 的 order/flex） */
+#xxt-panel .xxt-toggle .xxt-toggle-badge {
+  order: 2; flex: 0 0 auto; padding: 2px 8px; border-radius: 999px;
+  background: #ede9fe; color: #6d28d9;
+  font-size: 10px; font-weight: 700; line-height: 1.5; letter-spacing: .02em;
+  white-space: nowrap;
+}
+#xxt-panel #xxt-ans-toggle .xxt-checkbox-wrap { order: 3; }
+/* 已勾选的高亮态：对应设计稿的 violet-50/40 + 紫色描边 */
+#xxt-panel .xxt-toggle:has(input:checked) {
+  border-color: #ddd6fe; background: rgba(245,243,255,.45);
+}
+#xxt-panel .xxt-toggle:has(input:checked) span { color: #5b21b6; }
 /* 题库导入勾选时禁用打乱/答案选项，不隐藏 */
 #xxt-panel .xxt-toggle.xxt-disabled {
   opacity: 0.45; pointer-events: none; user-select: none;
@@ -3279,9 +3505,9 @@ Typr["U"] = {
 
 /* ===== 错题提示 ===== */
 #xxt-panel .xxt-wrong-hint {
-  font-size: 11.5px; color: #dc2626; margin-top: 10px;
-  padding: 10px 14px; background: rgba(239,68,68,0.08); border-radius: 12px;
-  border: 1px solid rgba(239,68,68,0.2); font-weight: 600;
+  font-size: 11px; color: #dc2626; margin-top: 6px;
+  padding: 8px 10px; background: rgba(239,68,68,0.07); border-radius: 9px;
+  border: 1px solid rgba(239,68,68,0.2); font-weight: 700;
   animation: xxt-shake 0.4s ease-in-out;
 }
 @keyframes xxt-shake {
@@ -3295,30 +3521,28 @@ Typr["U"] = {
 
 /* ===== QQ 群反馈入口 ===== */
 #xxt-panel .xxt-feedback-link {
-  display: inline-flex; align-items: center; justify-content: center;
-  height: 28px; padding: 0 8px; border-radius: 9px;
-  background: linear-gradient(135deg, #12b7f5, #1286e8);
+  display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+  height: 24px; padding: 0 8px; border-radius: 99px;
+  background: #3b82f6;
   color: #fff !important; text-decoration: none;
-  font-size: 11px; font-weight: 700; white-space: nowrap;
-  box-shadow: 0 4px 10px -5px rgba(18,134,232,0.75);
-  transition: all 0.22s ease;
+  font-size: 10px; font-weight: 800; white-space: nowrap;
+  box-shadow: 0 3px 8px -4px rgba(59,130,246,.8);
+  transition: background .18s ease, transform .12s ease;
 }
-#xxt-panel .xxt-feedback-link:hover {
-  filter: brightness(1.08); transform: translateY(-1px);
-  box-shadow: 0 7px 14px -6px rgba(18,134,232,0.85);
-}
-#xxt-panel .xxt-feedback-link:active { transform: translateY(0) scale(0.97); }
+#xxt-panel .xxt-feedback-link:hover { background: #2563eb; transform: translateY(-1px); }
+#xxt-panel .xxt-feedback-link:active { transform: scale(.95); }
 
-/* ===== 设置齿轮图标 ===== */
+/* ===== 设置/历史 圆形小按钮 ===== */
 #xxt-panel .xxt-settings-btn {
-  width: 28px; height: 28px; border: none;
-  background: rgba(15,23,42,0.05);
+  width: 24px; height: 24px; border: none;
+  background: #f1f5f9;
   border-radius: 50%; cursor: pointer; display: flex; align-items: center;
-  justify-content: center; transition: all 0.25s ease; margin-right: 4px;
-  color: #9ca3af; padding: 0;
+  justify-content: center; transition: background .18s ease, color .18s ease, transform .18s ease;
+  margin: 0; color: #64748b; padding: 0;
 }
-#xxt-panel .xxt-settings-btn:hover { background: rgba(124,92,240,0.14); color: var(--xxt-accent); transform: rotate(40deg); }
-#xxt-panel .xxt-settings-btn svg { width: 16px; height: 16px; fill: currentColor; }
+#xxt-panel .xxt-settings-btn:hover { background: #ede9fe; color: #6d28d9; transform: rotate(35deg); }
+#xxt-panel .xxt-settings-btn:active { transform: scale(.92); }
+#xxt-panel .xxt-settings-btn svg { width: 13px; height: 13px; fill: currentColor; }
 
 /* 所有脚本浮窗都可从标题栏拖动；表单控件和关闭按钮仍保持正常点击。 */
 #xxt-panel.xxt-draggable .xxt-header,
@@ -3547,89 +3771,243 @@ Typr["U"] = {
 [data-xxt-theme="dark"] #xxt-batch-progress-card .xxt-batch-card-close { background:rgba(205,214,244,.08); color:#a6adc8; }
 [data-xxt-theme="dark"] #xxt-batch-progress-card button[data-batch-card-stop] { background:#181825; color:#f87171; border-color:#f87171; }
 
-/* ===== 题库区弹窗 ===== */
+/* ===== 题库区弹窗 =====
+ * 版式：蓝色渐变图标标题 + 题库下拉/管理行 + 元信息条（固定头部），
+ * 中间为独立滚动区（工具条/搜索/AI/筛选/题目卡片），底部固定对比栏。
+ */
 #xxt-bank-modal {
   position: fixed; inset: 0; z-index: 100003;
-  background: rgba(15,23,42,0.42); backdrop-filter: blur(4px);
+  background: rgba(15,23,42,0.48); backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex; align-items: center; justify-content: center;
   opacity: 0; pointer-events: none; transition: opacity .28s ease;
 }
 #xxt-bank-modal.open { opacity: 1; pointer-events: auto; }
 #xxt-bank-modal .xxt-bank-box {
-  background:#fff; border:1px solid var(--xxt-border); border-radius:22px;
-  width:min(980px,94vw); max-height:90vh; padding:22px; box-shadow:var(--xxt-shadow);
-  color:var(--xxt-text); transform:translateY(16px) scale(.97);
-  transition:transform .3s cubic-bezier(.16,1,.3,1); display:flex; flex-direction:column;
+  background:#fff; border:1px solid var(--xxt-border); border-radius: 18px;
+  width:min(1040px,95vw); max-height:94vh; padding:0; box-shadow:var(--xxt-shadow);
+  color:var(--xxt-text); transform:translateY(16px) scale(.98);
+  transition:transform .3s cubic-bezier(.16,1,.3,1);
+  display:flex; flex-direction:column; overflow:hidden;
 }
 #xxt-bank-modal.open .xxt-bank-box { transform:translateY(0) scale(1); }
-#xxt-bank-modal .xxt-modal-header { display:flex; align-items:center; justify-content:space-between; padding-bottom:14px; margin-bottom:12px; border-bottom:1px solid var(--xxt-border); }
-#xxt-bank-modal .xxt-modal-header h3 { margin:0; font-size:16px; font-weight:800; color:var(--xxt-text); }
-#xxt-bank-modal .xxt-modal-close { width:28px; height:28px; border:0; border-radius:50%; background:rgba(15,23,42,.05); color:#9ca3af; cursor:pointer; font-size:15px; }
-#xxt-bank-modal .xxt-modal-close:hover { background:#ef4444; color:#fff; }
-#xxt-bank-modal .xxt-bank-toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px; }
-#xxt-bank-modal select, #xxt-bank-modal input[type="text"], #xxt-bank-modal input[type="number"] { box-sizing:border-box; border:1px solid var(--xxt-border); border-radius:9px; padding:8px 10px; background:#fff; color:var(--xxt-text); font:12px/1.4 inherit; }
-#xxt-bank-modal select { flex:1 1 220px; min-width:180px; }
-#xxt-bank-modal .xxt-bank-btn { border:1px solid var(--xxt-accent); background:#fff; color:var(--xxt-accent-strong); border-radius:9px; padding:8px 11px; cursor:pointer; font-size:12px; font-weight:700; }
-#xxt-bank-modal .xxt-bank-btn:hover { background:var(--xxt-grad); color:#fff; border-color:transparent; }
-#xxt-bank-modal .xxt-bank-btn.xxt-danger { border-color:#ef4444; color:#dc2626; }
-#xxt-bank-modal .xxt-bank-btn.xxt-danger:hover { background:#ef4444; color:#fff; }
-#xxt-bank-modal .xxt-bank-info { padding:10px 12px; border-radius:11px; background:var(--xxt-grad-soft); color:var(--xxt-text-soft); font-size:12px; margin-bottom:10px; }
-#xxt-bank-modal .xxt-bank-search { display:flex; gap:8px; margin-bottom:10px; }
-#xxt-bank-modal .xxt-bank-search input { flex:1; }
-#xxt-bank-modal .xxt-bank-list { overflow:auto; min-height:120px; max-height:52vh; padding:2px 4px 8px 0; }
-#xxt-bank-modal .xxt-bank-type-group { margin:0 0 15px; }
-#xxt-bank-modal .xxt-bank-type-head { display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:7px 3px 8px; margin-bottom:8px; border-bottom:1px solid var(--xxt-border); }
-#xxt-bank-modal .xxt-bank-type-title { color:var(--xxt-accent-strong); font-size:14px; font-weight:800; }
-#xxt-bank-modal .xxt-bank-type-count { color:var(--xxt-text-soft); font-size:11px; white-space:nowrap; }
-#xxt-bank-modal .xxt-bank-card { border:1px solid var(--xxt-border); border-radius:13px; padding:11px 12px; margin-bottom:8px; background:var(--xxt-surface-solid); }
+#xxt-bank-modal .xxt-modal-header {
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  flex:0 0 auto; padding:14px 18px 11px;
+  border-bottom:1px solid var(--xxt-border-soft); background:#fff;
+}
+#xxt-bank-modal .xxt-bank-title { display:flex; align-items:center; gap:9px; min-width:0; }
+#xxt-bank-modal .xxt-bank-title-icon {
+  width:30px; height:30px; flex:0 0 30px; border-radius:9px;
+  display:grid; place-items:center; color:#fff;
+  background: linear-gradient(135deg, #2563eb 0%, #6366f1 55%, #38bdf8 100%);
+  box-shadow: 0 5px 13px -6px rgba(37,99,235,.72);
+}
+#xxt-bank-modal .xxt-bank-title-icon svg { width:17px; height:17px; display:block; }
+#xxt-bank-modal .xxt-modal-header h3 { margin:0; font-size:17px; font-weight:800; letter-spacing:-.01em; color:var(--xxt-text); }
+#xxt-bank-modal .xxt-modal-close {
+  width:30px; height:30px; border:0; border-radius:50%; flex:0 0 auto;
+  background:transparent; color:#94a3b8; cursor:pointer; font-size:19px; line-height:1;
+  display:grid; place-items:center; transition: background .16s ease, color .16s ease;
+}
+#xxt-bank-modal .xxt-modal-close:hover { background:#f1f5f9; color:#475569; }
+/* 题库下拉 + 新建/改名/删除 */
+#xxt-bank-modal .xxt-bank-topbar {
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  flex:0 0 auto; padding:0 18px 10px; background:#fff;
+  border-bottom:1px solid var(--xxt-border-soft);
+}
+#xxt-bank-modal .xxt-bank-topbar select {
+  flex:1 1 240px; min-width:180px;
+  border:1px solid var(--xxt-border); border-radius:10px;
+  padding:8px 11px; background:#f8fafc; color:var(--xxt-text);
+  font:600 12.5px/1.4 inherit; cursor:pointer;
+}
+#xxt-bank-modal .xxt-bank-topbar-actions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+#xxt-bank-modal .xxt-bank-info {
+  flex:0 0 auto; margin:0 18px 10px; padding:7px 11px;
+  border:1px solid var(--xxt-border-soft); border-radius:9px;
+  background:#f8fafc; color:#64748b; font-size:11px; font-weight:600; line-height:1.5;
+}
+#xxt-bank-modal .xxt-bank-info::before {
+  content:''; display:inline-block; width:6px; height:6px; margin-right:6px;
+  border-radius:50%; background:#10b981; vertical-align:middle;
+}
+/* 独立滚动区 */
+#xxt-bank-modal .xxt-bank-body {
+  flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden;
+  padding:0 18px 12px; background:#f8fafc;
+}
+#xxt-bank-modal .xxt-bank-body::-webkit-scrollbar { width:6px; height:6px; }
+#xxt-bank-modal .xxt-bank-body::-webkit-scrollbar-track { background:#f1f5f9; border-radius:999px; }
+#xxt-bank-modal .xxt-bank-body::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:999px; }
+#xxt-bank-modal .xxt-bank-body::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
+#xxt-bank-modal select, #xxt-bank-modal input[type="text"], #xxt-bank-modal input[type="search"], #xxt-bank-modal input[type="number"] {
+  box-sizing:border-box; border:1px solid var(--xxt-border); border-radius:9px;
+  padding:7px 10px; background:#fff; color:var(--xxt-text);
+  font:600 12px/1.4 inherit; outline:0;
+}
+#xxt-bank-modal select:focus, #xxt-bank-modal input:focus {
+  border-color:#93c5fd; box-shadow:0 0 0 3px rgba(59,130,246,.16);
+}
+#xxt-bank-modal .xxt-bank-toolbar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding:12px 0 0; }
+#xxt-bank-modal .xxt-bank-btn {
+  border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8;
+  border-radius:9px; padding:6px 11px; cursor:pointer;
+  font:800 11.5px/1.35 inherit; transition: background .16s ease, border-color .16s ease, transform .12s ease;
+}
+#xxt-bank-modal .xxt-bank-btn:hover { background:#dbeafe; border-color:#93c5fd; }
+#xxt-bank-modal .xxt-bank-btn:active { transform: scale(.98); }
+#xxt-bank-modal .xxt-bank-btn.xxt-bank-btn-primary {
+  background:#2563eb; border-color:#2563eb; color:#fff;
+  box-shadow:0 3px 8px -4px rgba(37,99,235,.7);
+}
+#xxt-bank-modal .xxt-bank-btn.xxt-bank-btn-primary:hover { background:#1d4ed8; border-color:#1d4ed8; }
+#xxt-bank-modal .xxt-bank-btn.xxt-danger { border-color:#fecdd3; background:#fff1f2; color:#e11d48; }
+#xxt-bank-modal .xxt-bank-btn.xxt-danger:hover { background:#ffe4e6; border-color:#fda4af; }
+#xxt-bank-modal .xxt-bank-btn.xxt-bank-btn-push { margin-left:auto; }
+#xxt-bank-modal .xxt-bank-search { position:relative; display:flex; gap:6px; margin:10px 0; align-items:center; }
+#xxt-bank-modal .xxt-bank-search input { flex:1; padding-left:32px; border-radius:10px; background:#fff; }
+#xxt-bank-modal .xxt-bank-search-icon {
+  position:absolute; left:10px; top:50%; transform:translateY(-50%);
+  width:14px; height:14px; color:#94a3b8; pointer-events:none;
+}
+#xxt-bank-modal .xxt-bank-search-icon svg { width:14px; height:14px; display:block; }
+#xxt-bank-modal .xxt-bank-list { overflow:visible; min-height:120px; padding:0 0 4px; }
+#xxt-bank-modal .xxt-bank-type-group { margin:0 0 12px; }
+#xxt-bank-modal .xxt-bank-type-head {
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:0 2px 7px; margin-bottom:7px;
+}
+#xxt-bank-modal .xxt-bank-type-title {
+  display:inline-flex; align-items:center;
+  padding:2px 9px; border-radius:6px;
+  background:#eff6ff; color:#1d4ed8;
+  font-size:11.5px; font-weight:800;
+}
+#xxt-bank-modal .xxt-bank-type-count { color:var(--xxt-text-soft); font-size:11px; font-weight:600; white-space:nowrap; }
+#xxt-bank-modal .xxt-bank-card {
+  position:relative;
+  border:1px solid var(--xxt-border); border-radius: 14px;
+  padding:12px 13px 11px; margin-bottom:8px;
+  background:#fff; box-shadow: 0 1px 3px 0 rgba(0,0,0,.05), 0 1px 2px 0 rgba(0,0,0,.03);
+  transition: border-color .16s ease;
+}
+#xxt-bank-modal .xxt-bank-card:hover { border-color:#bfdbfe; }
 #xxt-bank-modal .xxt-bank-card-head { display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:8px; }
-#xxt-bank-modal .xxt-bank-card-number { display:inline-flex; align-items:center; min-height:22px; padding:0 8px; border-radius:999px; background:var(--xxt-grad-soft); color:var(--xxt-accent-strong); font-size:11px; font-weight:800; }
-#xxt-bank-modal .xxt-bank-card-meta { color:var(--xxt-text-soft); font-size:11px; }
-#xxt-bank-modal .xxt-bank-question-stem { color:var(--xxt-text); font-size:13px; font-weight:700; line-height:1.65; white-space:normal; overflow-wrap:anywhere; }
-#xxt-bank-modal .xxt-bank-options { display:grid; gap:5px; margin-top:9px; padding:8px 9px; border-radius:9px; background:rgba(91,58,216,.055); }
-#xxt-bank-modal .xxt-bank-options-label { color:var(--xxt-text-soft); font-size:10px; font-weight:800; letter-spacing:.04em; }
-#xxt-bank-modal .xxt-bank-option { display:grid; grid-template-columns:26px minmax(0,1fr); gap:5px; color:var(--xxt-text); font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
-#xxt-bank-modal .xxt-bank-option-letter { color:var(--xxt-accent-strong); font-weight:800; }
+#xxt-bank-modal .xxt-bank-card-number {
+  display:inline-flex; align-items:center; min-height:19px; padding:0 6px;
+  border-radius:5px; border:1px solid #e0e7ff;
+  background:#eef2ff; color:#4338ca;
+  font-size:10.5px; font-weight:800;
+}
+#xxt-bank-modal .xxt-bank-card-meta { color:#94a3b8; font-size:11px; font-weight:600; }
+#xxt-bank-modal .xxt-bank-question-stem { color:var(--xxt-text); font-size:13px; font-weight:700; line-height:1.6; white-space:normal; overflow-wrap:anywhere; letter-spacing:-.005em; }
+#xxt-bank-modal .xxt-bank-options { display:grid; gap:4px; margin-top:8px; padding:0; border-radius:0; background:transparent; }
+#xxt-bank-modal .xxt-bank-options-label { display:none; }
+#xxt-bank-modal .xxt-bank-option { display:grid; grid-template-columns:20px minmax(0,1fr); gap:6px; color:#475569; font-size:12px; line-height:1.6; overflow-wrap:anywhere; padding:1px 6px; border-radius:6px; }
+#xxt-bank-modal .xxt-bank-option-letter { color:#2563eb; font-weight:800; }
+/* 正确答案对应的选项整行加重，和导出的答案块呼应。 */
+#xxt-bank-modal .xxt-bank-option-correct { color:#064e3b; font-weight:700; background:#ecfdf5; box-shadow:inset 2px 0 0 #6ee7b7; }
+#xxt-bank-modal .xxt-bank-option-correct .xxt-bank-option-letter { color:#047857; }
 #xxt-bank-modal .xxt-bank-option-text { min-width:0; }
-#xxt-bank-modal .xxt-bank-no-options { margin-top:9px; color:var(--xxt-text-soft); font-size:11px; }
-#xxt-bank-modal .xxt-bank-answer { display:grid; grid-template-columns:38px minmax(0,1fr); gap:7px; align-items:start; margin-top:9px; padding:8px 9px; border:1px solid rgba(16,185,129,.28); border-radius:9px; background:rgba(16,185,129,.08); color:#047857; font-size:12px; line-height:1.6; overflow-wrap:anywhere; }
-#xxt-bank-modal .xxt-bank-answer-label { font-weight:800; }
-#xxt-bank-modal .xxt-bank-answer-value { min-width:0; font-weight:700; }
-#xxt-bank-modal .xxt-bank-muted { color:var(--xxt-text-soft); font-weight:500; }
-#xxt-bank-modal .xxt-bank-card-actions { display:flex; gap:5px; flex-wrap:wrap; margin-top:8px; }
-#xxt-bank-modal .xxt-bank-card-actions button { border:1px solid var(--xxt-border); border-radius:7px; padding:5px 8px; background:transparent; color:var(--xxt-text-soft); cursor:pointer; font-size:11px; }
-#xxt-bank-modal .xxt-bank-card-actions button:hover { border-color:var(--xxt-accent); color:var(--xxt-accent-strong); }
-#xxt-bank-modal .xxt-bank-empty { text-align:center; color:#9ca3af; padding:34px 0; font-size:12px; }
-#xxt-bank-modal .xxt-bank-pagination { display:flex; align-items:center; justify-content:center; gap:9px; padding:10px 0 4px; color:var(--xxt-text-soft); font-size:11px; }
-#xxt-bank-modal .xxt-bank-pagination button { min-width:54px; border:1px solid var(--xxt-border); border-radius:7px; padding:5px 8px; background:transparent; color:var(--xxt-text-soft); cursor:pointer; font:inherit; }
-#xxt-bank-modal .xxt-bank-pagination button:hover:not(:disabled) { border-color:var(--xxt-accent); color:var(--xxt-accent-strong); }
-#xxt-bank-modal .xxt-bank-pagination button:disabled { opacity:.42; cursor:not-allowed; }
-#xxt-bank-modal .xxt-bank-compare { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding-top:10px; border-top:1px solid var(--xxt-border); }
+#xxt-bank-modal .xxt-bank-no-options { margin-top:8px; color:#94a3b8; font-size:11px; }
+#xxt-bank-modal .xxt-bank-answer {
+  display:flex; align-items:center; gap:8px; margin-top:9px;
+  padding:7px 10px; border:1px solid #a7f3d0; border-radius:10px;
+  background:#ecfdf5; color:#047857; font-size:12px; line-height:1.55; overflow-wrap:anywhere;
+}
+#xxt-bank-modal .xxt-bank-answer-label {
+  flex:0 0 auto; padding:1px 6px; border-radius:4px;
+  background:#d1fae5; color:#065f46; font-size:10.5px; font-weight:800;
+}
+#xxt-bank-modal .xxt-bank-answer-value { min-width:0; font-weight:800; color:#047857; }
+#xxt-bank-modal .xxt-bank-muted { color:#94a3b8; font-weight:500; }
+#xxt-bank-modal .xxt-bank-card-actions { display:flex; gap:5px; flex-wrap:wrap; margin-top:9px; padding-top:8px; border-top:1px solid #f1f5f9; }
+#xxt-bank-modal .xxt-bank-card-actions button {
+  border:1px solid var(--xxt-border); border-radius:6px;
+  padding:4px 8px; background:#fff; color:#64748b; cursor:pointer;
+  font:700 10.5px/1.35 inherit; transition: all .16s ease;
+}
+#xxt-bank-modal .xxt-bank-card-actions button:hover { border-color:#bfdbfe; color:#1d4ed8; background:#eff6ff; }
+#xxt-bank-modal .xxt-bank-card-actions button.xxt-danger { color:#e11d48; }
+#xxt-bank-modal .xxt-bank-card-actions button.xxt-danger:hover { border-color:#fecdd3; color:#be123c; background:#fff1f2; }
+#xxt-bank-modal .xxt-bank-empty { text-align:center; color:#94a3b8; padding:34px 0; font-size:12px; font-weight:600; }
+#xxt-bank-modal .xxt-bank-pagination {
+  display:flex; align-items:center; justify-content:center; gap:9px;
+  padding:9px 0 2px; margin-top:4px; color:var(--xxt-text-soft); font-size:11px; font-weight:600;
+}
+#xxt-bank-modal .xxt-bank-pagination button {
+  min-width:52px; border:1px solid var(--xxt-border); border-radius:7px;
+  padding:4px 8px; background:#fff; color:#475569; cursor:pointer;
+  font:800 11px/1.35 inherit; transition: all .16s ease;
+}
+#xxt-bank-modal .xxt-bank-pagination button:hover:not(:disabled) { border-color:#93c5fd; color:#1d4ed8; background:#eff6ff; }
+#xxt-bank-modal .xxt-bank-pagination button:disabled { opacity:.45; cursor:not-allowed; }
+/* 固定底部栏 */
+#xxt-bank-modal .xxt-bank-footer {
+  display:flex; gap:8px; align-items:center; flex-wrap:wrap; flex:0 0 auto;
+  padding:11px 18px; border-top:1px solid var(--xxt-border-soft);
+  background:#fff; box-shadow: 0 -4px 16px rgba(15,23,42,.04);
+}
+#xxt-bank-modal .xxt-bank-compare-btn { background:#eff6ff; }
+#xxt-bank-modal .xxt-bank-threshold {
+  display:inline-flex; align-items:center; gap:5px;
+  color:#475569; font-size:11px; font-weight:700;
+}
+#xxt-bank-modal .xxt-bank-threshold input { width:58px; padding:5px 6px; text-align:center; font-weight:800; }
+#xxt-bank-modal .xxt-bank-threshold span { color:#94a3b8; }
+#xxt-bank-modal #xxt-bank-done { margin-left:auto; border-color:var(--xxt-border); background:#fff; color:#475569; }
+#xxt-bank-modal #xxt-bank-done:hover { background:#f1f5f9; color:#0f172a; }
 #xxt-bank-modal .xxt-bank-compare-status { width:100%; color:var(--xxt-text-soft); font-size:11px; white-space:pre-wrap; }
 
-/* 题库区：AI 校对面板 */
-#xxt-bank-modal .xxt-bank-ai { margin:0 0 10px; border:1px solid rgba(124,92,240,.28); border-radius:12px; background:linear-gradient(135deg, rgba(124,92,240,.08), rgba(59,130,246,.05)); padding:9px 10px; }
-#xxt-bank-modal .xxt-bank-ai-head { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:8px; }
-#xxt-bank-modal .xxt-bank-ai-title { font-size:12px; font-weight:800; color:var(--xxt-accent-strong); }
-#xxt-bank-modal .xxt-bank-ai-state { font-size:11px; color:var(--xxt-text-soft); }
-#xxt-bank-modal .xxt-bank-ai-actions { display:flex; gap:6px; flex-wrap:wrap; }
-#xxt-bank-modal .xxt-bank-ai-actions button { border:1px solid var(--xxt-accent); border-radius:8px; background:#fff; color:var(--xxt-accent-strong); padding:6px 9px; cursor:pointer; font:700 11px/1.3 inherit; }
-#xxt-bank-modal .xxt-bank-ai-actions button:hover:not(:disabled) { background:var(--xxt-grad); color:#fff; border-color:transparent; }
-#xxt-bank-modal .xxt-bank-ai-actions button:disabled { opacity:.45; cursor:not-allowed; }
-#xxt-bank-modal .xxt-bank-ai-progress { margin-top:8px; font-size:11px; color:var(--xxt-text-soft); line-height:1.5; white-space:pre-wrap; }
-#xxt-bank-modal .xxt-bank-ai-bar { margin-top:6px; height:5px; border-radius:3px; background:rgba(124,92,240,.15); overflow:hidden; }
-#xxt-bank-modal .xxt-bank-ai-bar i { display:block; height:100%; width:0%; border-radius:3px; background:var(--xxt-grad); transition:width .25s ease; }
-#xxt-bank-modal .xxt-bank-ai-banner { margin:0 0 10px; padding:8px 10px; border-radius:10px; border:1px dashed rgba(124,92,240,.4); color:var(--xxt-text-soft); font-size:11px; line-height:1.55; }
-#xxt-bank-modal .xxt-bank-ai-banner button { margin-left:6px; border:1px solid var(--xxt-accent); background:#fff; color:var(--xxt-accent-strong); border-radius:7px; padding:3px 8px; cursor:pointer; font:700 11px inherit; }
+/* 题库区：AI 校对面板（紫色渐变区） */
+#xxt-bank-modal .xxt-bank-ai {
+  margin:0 0 10px; padding:9px 11px;
+  border:1px solid #e9d5ff; border-radius:12px;
+  background: linear-gradient(100deg, rgba(250,245,255,.9) 0%, rgba(238,242,255,.72) 52%, rgba(239,246,255,.85) 100%);
+  box-shadow: 0 1px 3px 0 rgba(147,51,234,.06);
+}
+#xxt-bank-modal .xxt-bank-ai-head { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:7px; }
+#xxt-bank-modal .xxt-bank-ai-title {
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:11px; font-weight:800; letter-spacing:.02em;
+  color:#7e22ce; text-transform:none;
+}
+#xxt-bank-modal .xxt-bank-ai-state {
+  margin-left:auto; padding:1px 7px; border-radius:5px;
+  border:1px solid rgba(216,180,254,.7); background:rgba(243,232,255,.85);
+  color:#7e22ce; font:700 10.5px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60%;
+}
+#xxt-bank-modal .xxt-bank-ai-actions { display:flex; gap:5px; flex-wrap:wrap; }
+#xxt-bank-modal .xxt-bank-ai-actions button {
+  border:1px solid #e9d5ff; border-radius:7px; background:#fff;
+  color:#7e22ce; padding:4px 9px; cursor:pointer;
+  font:700 10.5px/1.4 inherit; box-shadow:0 1px 2px rgba(147,51,234,.05);
+  transition: background .16s ease, border-color .16s ease, transform .12s ease;
+}
+#xxt-bank-modal .xxt-bank-ai-actions button:hover:not(:disabled) { background:#faf5ff; border-color:#d8b4fe; }
+#xxt-bank-modal .xxt-bank-ai-actions button:active:not(:disabled) { transform: scale(.97); }
+#xxt-bank-modal .xxt-bank-ai-actions button:disabled { background:#f1f5f9; border-color:#e2e8f0; color:#94a3b8; cursor:not-allowed; box-shadow:none; }
+#xxt-bank-modal .xxt-bank-ai-progress { margin-top:7px; font-size:10.5px; color:#6b21a8; font-weight:600; line-height:1.5; white-space:pre-wrap; }
+#xxt-bank-modal .xxt-bank-ai-bar { margin-top:6px; height:4px; border-radius:99px; background:rgba(147,51,234,.15); overflow:hidden; }
+#xxt-bank-modal .xxt-bank-ai-bar i { display:block; height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,#9333ea,#6366f1); transition:width .25s ease; }
+#xxt-bank-modal .xxt-bank-ai-banner { margin:0 0 10px; padding:8px 10px; border-radius:10px; border:1px dashed #d8b4fe; background:rgba(250,245,255,.6); color:#6b21a8; font-size:11px; line-height:1.55; }
+#xxt-bank-modal .xxt-bank-ai-banner button { margin-left:6px; border:1px solid #d8b4fe; background:#fff; color:#7e22ce; border-radius:6px; padding:3px 8px; cursor:pointer; font:700 11px inherit; }
 
 /* 题库区：勾选与筛选 */
 #xxt-bank-modal .xxt-bank-filters { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:9px; }
-#xxt-bank-modal .xxt-bank-filters select { flex:0 0 auto; min-width:120px; padding:6px 8px; font-size:11px; }
-#xxt-bank-modal .xxt-bank-filters button { border:1px solid var(--xxt-border); border-radius:8px; background:#fff; color:var(--xxt-text-soft); padding:6px 9px; cursor:pointer; font:700 11px/1.3 inherit; }
-#xxt-bank-modal .xxt-bank-filters button:hover { border-color:var(--xxt-accent); color:var(--xxt-accent-strong); }
-#xxt-bank-modal .xxt-bank-filters .xxt-bank-filter-count { margin-left:auto; color:var(--xxt-text-soft); font-size:11px; font-weight:700; }
+#xxt-bank-modal .xxt-bank-filters select { flex:0 0 auto; min-width:110px; padding:5px 7px; font-size:11px; }
+#xxt-bank-modal .xxt-bank-filter-divider { width:1px; height:16px; background:var(--xxt-border); margin:0 2px; }
+#xxt-bank-modal .xxt-bank-filters button {
+  border:1px solid var(--xxt-border); border-radius:7px; background:#fff; color:#64748b;
+  padding:4px 9px; cursor:pointer; font:700 10.5px/1.4 inherit; transition: all .16s ease;
+}
+#xxt-bank-modal .xxt-bank-filters button:hover { border-color:#bfdbfe; color:#1d4ed8; background:#eff6ff; }
+#xxt-bank-modal .xxt-bank-filters .xxt-bank-filter-count { margin-left:auto; color:var(--xxt-text-soft); font-size:10.5px; font-weight:700; }
 #xxt-bank-modal .xxt-bank-card { position:relative; }
-#xxt-bank-modal .xxt-bank-card.xxt-bank-card-selected { border-color:var(--xxt-accent); box-shadow:0 0 0 2px rgba(124,92,240,.14); }
+#xxt-bank-modal .xxt-bank-card.xxt-bank-card-selected { border-color:#93c5fd; box-shadow:0 0 0 2px rgba(59,130,246,.14); }
 /* 复选框必须显式绘制，且**每一条都要 !important**：
    学习通等宿主页面常注入 input[type=checkbox]{appearance:none;opacity:0;width:0}，
    带 !important 的宿主规则会压过普通声明，原生控件就变成「透明看不见」。
@@ -3670,16 +4048,23 @@ Typr["U"] = {
 [data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-select:checked,
 [data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-card-head .xxt-bank-check.xxt-check-on,
 [data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-select.xxt-check-on { background-color: var(--xxt-accent) !important; border-color: var(--xxt-accent) !important; }
-#xxt-bank-modal .xxt-bank-card-head-left { display:flex; align-items:center; gap:6px; min-width:0; }
-#xxt-bank-modal .xxt-bank-badge { display:inline-flex; align-items:center; padding:1px 6px; border-radius:999px; font-size:10px; font-weight:800; }
-#xxt-bank-modal .xxt-bank-badge.xxt-bank-badge-missing { background:rgba(245,158,11,.16); color:#b45309; }
-#xxt-bank-modal .xxt-bank-badge.xxt-bank-badge-ai { background:rgba(16,185,129,.16); color:#047857; }
-#xxt-bank-modal .xxt-bank-badge.xxt-bank-badge-low { background:rgba(239,68,68,.14); color:#b91c1c; }
-#xxt-bank-modal .xxt-bank-badge.xxt-bank-badge-unsure { background:rgba(139,92,246,.16); color:#6d28d9; }
-#xxt-bank-modal .xxt-bank-unsure-note { background:rgba(139,92,246,.07); border:1px dashed rgba(139,92,246,.35); }
-[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-badge.xxt-bank-badge-unsure { background:rgba(167,139,250,.2); color:#ddd6fe; }
-#xxt-bank-modal .xxt-bank-explanation { margin-top:8px; padding:7px 9px; border-radius:9px; background:rgba(59,130,246,.07); color:var(--xxt-text-soft); font-size:11px; line-height:1.6; overflow-wrap:anywhere; }
-#xxt-bank-modal .xxt-bank-card-selected .xxt-bank-card-actions button[data-bank-action="ai"] { border-color:var(--xxt-accent); color:var(--xxt-accent-strong); }
+#xxt-bank-modal .xxt-bank-card-head-left { display:flex; align-items:center; gap:5px; min-width:0; flex-wrap:wrap; }
+#xxt-bank-modal .xxt-bank-badge {
+  display:inline-flex; align-items:center; padding:1px 6px; border-radius:5px;
+  font-size:10px; font-weight:800; line-height:1.6;
+}
+#xxt-bank-modal .xxt-bank-badge.xxt-bank-badge-missing { background:#fffbeb; border:1px solid #fde68a; color:#b45309; }
+#xxt-bank-modal .xxt-bank-badge.xxt-bank-badge-ai { background:#ecfdf5; border:1px solid #a7f3d0; color:#047857; }
+#xxt-bank-modal .xxt-bank-badge.xxt-bank-badge-low { background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; }
+#xxt-bank-modal .xxt-bank-badge.xxt-bank-badge-unsure { background:#f5f3ff; border:1px solid #ddd6fe; color:#6d28d9; }
+#xxt-bank-modal .xxt-bank-unsure-note { background:#faf5ff; border:1px dashed #ddd6fe; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-badge.xxt-bank-badge-unsure { background:rgba(167,139,250,.2); border-color:rgba(167,139,250,.4); color:#ddd6fe; }
+#xxt-bank-modal .xxt-bank-explanation {
+  margin-top:8px; padding:8px 10px; border-radius:8px;
+  border:1px solid var(--xxt-border-soft); background:#f8fafc;
+  color:#475569; font-size:11px; line-height:1.65; overflow-wrap:anywhere;
+}
+#xxt-bank-modal .xxt-bank-card-selected .xxt-bank-card-actions button[data-bank-action="ai"] { border-color:#bfdbfe; color:#1d4ed8; background:#eff6ff; }
 
 /* ===== 存入题库引导弹窗 ===== */
 #xxt-save-bank-modal {
@@ -3761,146 +4146,311 @@ Typr["U"] = {
 /* ===== 在线查看/编辑弹窗 ===== */
 #xxt-editor-modal {
   position: fixed; inset: 0; z-index: 100004;
-  background: rgba(15,23,42,0.42); backdrop-filter: blur(4px);
+  background: rgba(15,23,42,0.60); backdrop-filter: blur(6px);
   display: flex; align-items: center; justify-content: center;
   opacity: 0; pointer-events: none; transition: opacity 0.28s ease;
 }
 #xxt-editor-modal.open { opacity: 1; pointer-events: auto; }
 #xxt-editor-modal .xxt-editor-box {
-  background: #fff; border: 1px solid var(--xxt-border); border-radius: 22px;
-  width: min(900px, 94vw); max-height: 90vh; padding: 22px;
-  box-shadow: var(--xxt-shadow); display: flex; flex-direction: column;
+  background: #fff; border: 1px solid rgba(226,232,240,.9); border-radius: 16px;
+  width: min(1024px, 96vw); max-height: 94vh; padding: 0;
+  box-shadow: 0 25px 60px -15px rgba(30,27,75,.25), 0 0 1px 1px rgba(99,102,241,.08);
+  display: flex; flex-direction: column; overflow: hidden;
   color: var(--xxt-text); transform: translateY(16px) scale(.97);
   transition: transform .3s cubic-bezier(.16,1,.3,1);
 }
 #xxt-editor-modal.open .xxt-editor-box { transform: translateY(0) scale(1); }
-#xxt-editor-modal .xxt-modal-header { display:flex; align-items:center; justify-content:space-between; padding-bottom:14px; margin-bottom:12px; border-bottom:1px solid var(--xxt-border); flex-shrink:0; }
-#xxt-editor-modal .xxt-modal-header h3 { margin:0; font-size:16px; font-weight:800; color:var(--xxt-text); }
-#xxt-editor-modal .xxt-modal-close { width:28px; height:28px; border:0; border-radius:50%; background:rgba(15,23,42,.05); color:#9ca3af; cursor:pointer; font-size:15px; }
-#xxt-editor-modal .xxt-modal-close:hover { background:#ef4444; color:#fff; }
-#xxt-editor-modal .xxt-editor-note { color:#6b7280; font-size:12px; margin:0 0 12px; }
-#xxt-editor-modal .xxt-editor-selection-toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:0 0 12px; padding:10px 12px; border:1px solid var(--xxt-border); border-radius:12px; background:var(--xxt-grad-soft); }
-#xxt-editor-modal .xxt-editor-selection-toolbar button { border:1px solid var(--xxt-accent); border-radius:8px; padding:6px 9px; background:#fff; color:var(--xxt-accent-strong); cursor:pointer; font:700 11px/1.3 inherit; }
-#xxt-editor-modal .xxt-editor-selection-toolbar button:hover { background:var(--xxt-grad); color:#fff; border-color:transparent; }
-#xxt-editor-modal .xxt-editor-selection-count { margin-left:auto; color:var(--xxt-text-soft); font-size:11px; font-weight:700; }
-#xxt-editor-modal .xxt-editor-list { overflow-y:auto; padding:2px 5px 8px 0; }
-#xxt-editor-modal .xxt-editor-list::-webkit-scrollbar { width:6px; }
-#xxt-editor-modal .xxt-editor-list::-webkit-scrollbar-thumb { background:linear-gradient(180deg,#c4b5fd,#f0abfc); border-radius:6px; }
-#xxt-editor-modal .xxt-editor-type { margin:14px 0 8px; color:var(--xxt-accent-strong); font-size:14px; font-weight:800; }
-#xxt-editor-modal .xxt-editor-card { background:var(--xxt-surface-solid); border:1px solid var(--xxt-border); border-radius:15px; padding:14px; margin-bottom:12px; }
-#xxt-editor-modal .xxt-editor-card.xxt-editor-unselected { opacity:.58; }
-#xxt-editor-modal .xxt-editor-label { display:block; color:var(--xxt-text-soft); font-size:12px; font-weight:700; margin:0 0 5px; }
-#xxt-editor-modal textarea, #xxt-editor-modal input[type="text"] { box-sizing:border-box; width:100%; border:1px solid var(--xxt-border); border-radius:9px; padding:8px 10px; background:#fff; color:var(--xxt-text); font:13px/1.55 inherit; outline:0; resize:vertical; }
-#xxt-editor-modal textarea:focus, #xxt-editor-modal input[type="text"]:focus { border-color:var(--xxt-accent); box-shadow:0 0 0 3px rgba(124,92,240,.14); }
-#xxt-editor-modal .xxt-editor-stem { min-height:58px; }
-#xxt-editor-modal .xxt-editor-answer { min-height:42px; }
-#xxt-editor-modal .xxt-editor-explanation { min-height:46px; background:rgba(59,130,246,.04); }
+#xxt-editor-modal .xxt-modal-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
+  padding: 16px 22px 14px; margin: 0; background: #fff;
+  border-bottom: 1px solid #f1f5f9; flex-shrink: 0;
+}
+#xxt-editor-modal .xxt-editor-head { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+#xxt-editor-modal .xxt-editor-head-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; flex: 0 0 32px; border-radius: 9px;
+  background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+  color: #fff; box-shadow: 0 4px 12px -3px rgba(124,58,237,.45);
+}
+#xxt-editor-modal .xxt-editor-head-icon svg { width: 16px; height: 16px; }
+#xxt-editor-modal .xxt-editor-head-copy { min-width: 0; }
+#xxt-editor-modal .xxt-modal-header h3 {
+  margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -.01em; color: #0f172a;
+}
+#xxt-editor-modal .xxt-editor-subtitle {
+  margin: 3px 0 0; color: #64748b; font-size: 11.5px; font-weight: 400; line-height: 1.65;
+}
+#xxt-editor-modal .xxt-modal-close {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; flex: 0 0 30px; padding: 0; border: 0;
+  border-radius: 999px; background: transparent; color: #94a3b8;
+  cursor: pointer; transition: background .18s ease, color .18s ease;
+}
+#xxt-editor-modal .xxt-modal-close svg { width: 17px; height: 17px; }
+#xxt-editor-modal .xxt-modal-close:hover { background: #f1f5f9; color: #475569; }
+#xxt-editor-modal .xxt-editor-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  padding: 14px 22px 16px; background: rgba(248,250,252,.5);
+}
+#xxt-editor-modal .xxt-editor-scroll::-webkit-scrollbar { width: 7px; }
+#xxt-editor-modal .xxt-editor-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 999px; }
+#xxt-editor-modal .xxt-editor-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+#xxt-editor-modal .xxt-editor-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+#xxt-editor-modal .xxt-editor-list { overflow: visible; padding: 0; }
+#xxt-editor-modal .xxt-editor-selection-toolbar {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  margin: 0 0 10px; padding: 8px 11px; border: 1px solid #ede9fe; border-radius: 12px;
+  background: linear-gradient(90deg, rgba(250,245,255,.8) 0%, rgba(238,242,255,.5) 50%, rgba(248,250,252,.9) 100%);
+}
+#xxt-editor-modal .xxt-editor-selection-toolbar button {
+  border: 1px solid #ddd6fe; border-radius: 8px; padding: 4px 11px;
+  background: #fff; color: #6d28d9; cursor: pointer; font: 700 11.5px/1.5 inherit;
+  transition: background .16s ease, border-color .16s ease, transform .12s ease;
+}
+#xxt-editor-modal .xxt-editor-selection-toolbar button:hover { background: #f5f3ff; border-color: #c4b5fd; }
+#xxt-editor-modal .xxt-editor-selection-toolbar button:active { transform: scale(.96); }
+#xxt-editor-modal .xxt-editor-selection-count {
+  margin-left: auto; padding: 2px 10px; border-radius: 999px; border: 1px solid #ddd6fe;
+  background: #ede9fe; color: #6d28d9; font-size: 11.5px; font-weight: 700; white-space: nowrap;
+}
+#xxt-editor-modal .xxt-editor-type {
+  display: flex; align-items: center; gap: 8px;
+  margin: 12px 0 9px; padding: 0; background: transparent; box-shadow: none;
+}
+#xxt-editor-modal .xxt-editor-type-chip {
+  display: inline-flex; align-items: center; padding: 4px 11px;
+  border-radius: 7px; background: #7c3aed; color: #fff;
+  font-size: 12px; font-weight: 700; letter-spacing: .01em;
+  box-shadow: 0 4px 12px -4px rgba(124,58,237,.55);
+}
+#xxt-editor-modal .xxt-editor-type-count { color: #94a3b8; font-size: 11.5px; font-weight: 600; }
+#xxt-editor-modal .xxt-editor-card {
+  background: #fff; border: 1px solid rgba(226,232,240,.9); border-radius: 12px;
+  padding: 14px 16px 15px; margin-bottom: 12px;
+  box-shadow: 0 1px 2px rgba(15,23,42,.04);
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+#xxt-editor-modal .xxt-editor-card:hover { border-color: #c4b5fd; }
+#xxt-editor-modal .xxt-editor-card.xxt-editor-unselected { opacity:.55; }
+#xxt-editor-modal .xxt-editor-card-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding-bottom: 10px; margin-bottom: 11px; border-bottom: 1px solid #f1f5f9;
+}
+#xxt-editor-modal .xxt-editor-card-head-left { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+#xxt-editor-modal .xxt-editor-card-head .xxt-editor-label {
+  margin: 0; font-size: 13.5px; font-weight: 800; color: #1e293b;
+}
+#xxt-editor-modal .xxt-editor-note {
+  margin: 7px 0 0; padding: 6px 9px; border-radius: 8px;
+  background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8;
+  font-size: 11px; line-height: 1.55;
+}
+#xxt-editor-modal .xxt-editor-label { display:block; color:#475569; font-size:11.5px; font-weight:700; margin:0 0 5px; }
+#xxt-editor-modal textarea, #xxt-editor-modal input[type="text"] { box-sizing:border-box; width:100%; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; background:#fff; color:#1e293b; font:13px/1.6 inherit; outline:0; resize:vertical; transition:border-color .16s ease, box-shadow .16s ease; }
+#xxt-editor-modal textarea:focus, #xxt-editor-modal input[type="text"]:focus { border-color:#a78bfa; box-shadow:0 0 0 3px rgba(139,92,246,.16); }
+#xxt-editor-modal .xxt-editor-stem { min-height:56px; }
+#xxt-editor-modal .xxt-editor-answer { min-height:38px; text-align:center; font-weight:800; letter-spacing:.06em; color:#6d28d9; background:#f8fafc; }
+#xxt-editor-modal .xxt-editor-explanation { min-height:38px; background:#f8fafc; font-size:12px; }
+#xxt-editor-modal .xxt-editor-answer-row { display:grid; grid-template-columns:1fr 3fr; gap:12px; align-items:start; margin-top:10px; }
+@media screen and (max-width: 760px) {
+  #xxt-editor-modal .xxt-editor-answer-row { grid-template-columns:1fr; }
+}
 
 /* 在线编辑器：AI 补全/纯正 */
-#xxt-editor-modal .xxt-editor-ai-bar { display:flex; flex-wrap:wrap; gap:7px; align-items:center; margin:0 0 12px; padding:9px 12px; border:1px solid rgba(124,92,240,.28); border-radius:12px; background:linear-gradient(135deg,rgba(124,92,240,.08),rgba(59,130,246,.05)); }
-#xxt-editor-modal .xxt-editor-ai-bar strong { font-size:11.5px; font-weight:800; color:var(--xxt-accent-strong); }
-#xxt-editor-modal .xxt-editor-ai-bar button { border:1px solid var(--xxt-accent); border-radius:8px; padding:6px 9px; background:#fff; color:var(--xxt-accent-strong); cursor:pointer; font:700 11px/1.3 inherit; }
-#xxt-editor-modal .xxt-editor-ai-bar button:hover:not(:disabled) { background:var(--xxt-grad); color:#fff; border-color:transparent; }
-#xxt-editor-modal .xxt-editor-ai-bar button:disabled { opacity:.45; cursor:not-allowed; }
-#xxt-editor-modal .xxt-editor-ai-status { margin-left:auto; color:var(--xxt-text-soft); font-size:11px; font-weight:700; white-space:pre-wrap; }
-#xxt-editor-modal .xxt-editor-ai-one { border:1px solid rgba(124,92,240,.45) !important; background:rgba(124,92,240,.07) !important; color:var(--xxt-accent-strong) !important; border-radius:7px; padding:3px 8px !important; cursor:pointer; font:700 11px/1.3 inherit; }
-#xxt-editor-modal .xxt-editor-ai-one:hover:not(:disabled) { background:var(--xxt-grad) !important; color:#fff !important; }
+#xxt-editor-modal .xxt-editor-ai-bar {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  margin: 0 0 10px; padding: 9px 11px; border-radius: 12px;
+  border: 1px solid rgba(221,214,254,.8);
+  background: linear-gradient(90deg, rgba(245,243,255,.85) 0%, rgba(238,242,255,.55) 50%, rgba(250,245,255,.85) 100%);
+  box-shadow: 0 1px 2px rgba(15,23,42,.03);
+}
+#xxt-editor-modal .xxt-editor-ai-bar strong {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 8px; border: 1px solid #ddd6fe;
+  background: rgba(237,233,254,.75); color: #6d28d9; font-size: 11.5px; font-weight: 800;
+}
+#xxt-editor-modal .xxt-editor-ai-bar button {
+  border: 1px solid #c4b5fd; border-radius: 8px; padding: 4px 9px;
+  background: #fff; color: #6d28d9; cursor: pointer; font: 500 11.5px/1.5 inherit;
+  transition: background .16s ease, border-color .16s ease, transform .12s ease;
+}
+#xxt-editor-modal .xxt-editor-ai-bar button:hover:not(:disabled) { background: #f5f3ff; border-color: #a78bfa; }
+#xxt-editor-modal .xxt-editor-ai-bar button:active:not(:disabled) { transform: scale(.96); }
+#xxt-editor-modal .xxt-editor-ai-bar button:disabled {
+  background: #fff; border-color: #e2e8f0; color: #cbd5e1; cursor: not-allowed; opacity: 1;
+}
+#xxt-editor-modal .xxt-editor-ai-status {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-left: auto; padding: 3px 9px; border-radius: 8px;
+  border: 1px solid #e2e8f0; background: rgba(255,255,255,.85);
+  color: #475569; font: 700 11px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;
+  white-space: pre-wrap;
+}
+#xxt-editor-modal .xxt-editor-ai-status::before {
+  content: ''; width: 6px; height: 6px; flex: 0 0 6px; border-radius: 999px; background: #10b981;
+}
+#xxt-editor-modal .xxt-editor-ai-one {
+  border: 1px solid #ddd6fe !important; background: #f5f3ff !important; color: #6d28d9 !important;
+  border-radius: 7px; padding: 2px 8px !important; cursor: pointer; font: 700 11px/1.55 inherit;
+  transition: background .16s ease, border-color .16s ease;
+}
+#xxt-editor-modal .xxt-editor-ai-one:hover:not(:disabled) { background: #ede9fe !important; border-color: #c4b5fd !important; }
 #xxt-editor-modal .xxt-editor-ai-one:disabled { opacity:.45; cursor:not-allowed; }
-#xxt-editor-modal .xxt-editor-ai-tip { margin:7px 0 0; padding:7px 9px; border-radius:8px; background:rgba(16,185,129,.08); border:1px solid rgba(16,185,129,.26); color:#047857; font-size:11px; line-height:1.55; overflow-wrap:anywhere; }
-#xxt-editor-modal .xxt-editor-ai-tip.is-warn { background:rgba(245,158,11,.10); border-color:rgba(245,158,11,.3); color:#b45309; }
-[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-bar { border-color:rgba(167,139,250,.45); background:rgba(124,58,237,.14); }
-[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-bar button,
-[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-one { background:#181825 !important; color:#c4b5fd !important; border-color:#a78bfa !important; }
-[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-tip { background:rgba(16,185,129,.14); border-color:rgba(16,185,129,.34); color:#6ee7b7; }
-[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-tip.is-warn { background:rgba(245,158,11,.14); border-color:rgba(245,158,11,.34); color:#fbbf24; }
-#xxt-editor-modal .xxt-editor-option { display:grid; grid-template-columns:32px 1fr 30px; gap:7px; align-items:start; margin-top:7px; }
-#xxt-editor-modal .xxt-editor-letter { padding:8px 0; font-weight:800; color:var(--xxt-accent); text-align:center; }
-#xxt-editor-modal .xxt-editor-remove { border:0; background:transparent; color:#9ca3af; cursor:pointer; font-size:16px; padding:7px 0; }
-#xxt-editor-modal .xxt-editor-remove:hover { color:#ef4444; }
-#xxt-editor-modal .xxt-editor-add { margin-top:8px; border:1px dashed var(--xxt-accent); background:transparent; color:var(--xxt-accent-strong); border-radius:8px; padding:5px 10px; cursor:pointer; font-size:12px; }
-#xxt-editor-modal .xxt-editor-actions { display:flex; justify-content:flex-end; gap:10px; padding-top:14px; margin-top:4px; border-top:1px solid var(--xxt-border); flex-shrink:0; }
-#xxt-editor-modal .xxt-editor-actions button { border-radius:10px; padding:9px 20px; cursor:pointer; font-weight:700; }
-#xxt-editor-modal .xxt-editor-save { border:0; background:var(--xxt-grad); color:#fff; }
-#xxt-editor-modal .xxt-editor-cancel { border:1px solid var(--xxt-border); background:transparent; color:var(--xxt-text-soft); }
+#xxt-editor-modal .xxt-editor-ai-tip {
+  margin: 8px 0 0; padding: 7px 10px; border-radius: 8px;
+  background: #ecfdf5; border: 1px solid #a7f3d0; color: #047857;
+  font-size: 11px; line-height: 1.6; overflow-wrap: anywhere;
+}
+#xxt-editor-modal .xxt-editor-ai-tip.is-warn { background: #fffbeb; border-color: #fde68a; color: #b45309; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-bar {
+  border-color: rgba(167,139,250,.4);
+  background: linear-gradient(90deg, rgba(88,28,135,.24) 0%, rgba(49,46,129,.26) 50%, rgba(30,58,138,.2) 100%);
+}
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-bar strong {
+  background: rgba(124,58,237,.26); border-color: rgba(167,139,250,.42); color: #ddd6fe;
+}
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-bar button {
+  background: #1b1b2b; border-color: rgba(167,139,250,.4); color: #c4b5fd;
+}
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-bar button:hover:not(:disabled) { background: rgba(124,58,237,.24); border-color: #a78bfa; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-bar button:disabled { background: #11111b; border-color: #313244; color: #585b70; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-status {
+  background: rgba(17,17,27,.8); border-color: #313244; color: #a6adc8;
+}
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-one {
+  background: rgba(124,58,237,.22) !important; color: #d8b4fe !important; border-color: rgba(167,139,250,.4) !important;
+}
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-one:hover:not(:disabled) { background: rgba(124,58,237,.34) !important; border-color: #a78bfa !important; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-tip { background: rgba(16,185,129,.14); border-color: rgba(16,185,129,.34); color: #6ee7b7; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-ai-tip.is-warn { background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.34); color: #fbbf24; }
+
+/* 选项：方形字母块 + 单行输入（textarea 自动增高） */
+#xxt-editor-modal .xxt-editor-options { display: flex; flex-direction: column; gap: 6px; }
+#xxt-editor-modal .xxt-editor-options:has(.xxt-editor-option)::before {
+  content: '选项设置'; display: block; margin-bottom: 1px;
+  color: #475569; font-size: 11.5px; font-weight: 700;
+}
+#xxt-editor-modal .xxt-editor-option {
+  display: grid; grid-template-columns: 28px 1fr 26px; gap: 7px; align-items: center; margin-top: 0;
+}
+#xxt-editor-modal .xxt-editor-letter {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 30px; padding: 0; border-radius: 7px;
+  border: 1px solid #e0e7ff; background: #eef2ff; color: #6d28d9;
+  font-size: 11.5px; font-weight: 800; text-align: center;
+}
+#xxt-editor-modal .xxt-editor-option.is-answer .xxt-editor-letter {
+  background: #7c3aed; border-color: #6d28d9; color: #fff;
+  box-shadow: 0 2px 6px -1px rgba(124,58,237,.45);
+}
+#xxt-editor-modal .xxt-editor-option.is-answer textarea {
+  border-color: #c4b5fd; background: rgba(245,243,255,.5); font-weight: 600;
+}
+#xxt-editor-modal .xxt-editor-option textarea { padding: 6px 10px; font-size: 12px; min-height: 32px; }
+#xxt-editor-modal .xxt-editor-remove {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px;
+  background: transparent; color: #cbd5e1; cursor: pointer; font-size: 15px; line-height: 1;
+  transition: background .16s ease, color .16s ease;
+}
+#xxt-editor-modal .xxt-editor-card-head .xxt-editor-remove {
+  width: auto; height: auto; gap: 4px; padding: 3px 8px;
+  font-size: 11px; font-weight: 600; color: #94a3b8; white-space: nowrap;
+}
+#xxt-editor-modal .xxt-editor-remove:hover { background: #fff1f2; color: #e11d48; }
+#xxt-editor-modal .xxt-editor-add {
+  display: inline-flex; align-items: center; gap: 4px; margin-top: 8px;
+  border: 1px dashed #c4b5fd; background: transparent; color: #7c3aed;
+  border-radius: 8px; padding: 4px 11px; cursor: pointer; font-size: 11.5px; font-weight: 700;
+  transition: background .16s ease, border-color .16s ease;
+}
+#xxt-editor-modal .xxt-editor-add:hover { background: #f5f3ff; border-color: #a78bfa; }
+#xxt-editor-modal .xxt-editor-actions {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+  padding: 11px 22px; margin: 0; border-top: 1px solid #f1f5f9;
+  background: #fff; flex-shrink: 0;
+}
+#xxt-editor-modal .xxt-editor-hint {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-right: auto; color: #94a3b8; font-size: 11px; font-weight: 500;
+}
+#xxt-editor-modal .xxt-editor-hint::before {
+  content: ''; width: 13px; height: 13px; flex: 0 0 13px; background: #10b981;
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z'/%3E%3C/svg%3E");
+  -webkit-mask-size: 13px 13px; mask-size: 13px 13px;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center;
+}
+#xxt-editor-modal .xxt-editor-total { color: #cbd5e1; font-size: 11px; font-weight: 600; }
+#xxt-editor-modal .xxt-editor-actions button {
+  border-radius: 11px; padding: 8px 20px; cursor: pointer; font-size: 12px; font-weight: 600;
+  white-space: nowrap; flex: 0 0 auto;
+  transition: background .16s ease, border-color .16s ease, transform .12s ease;
+}
+#xxt-editor-modal .xxt-editor-actions button:active { transform: scale(.98); }
+#xxt-editor-modal .xxt-editor-save {
+  border: 0; color: #fff;
+  background: linear-gradient(90deg, #7c3aed 0%, #8b5cf6 50%, #4f46e5 100%);
+  box-shadow: 0 6px 18px -3px rgba(124,58,237,.45); font-weight: 700;
+}
+#xxt-editor-modal .xxt-editor-save:hover { background: linear-gradient(90deg, #6d28d9 0%, #7c3aed 50%, #4338ca 100%); }
+#xxt-editor-modal .xxt-editor-save::before {
+  content: ''; display: inline-block; vertical-align: -2px; margin-right: 5px;
+  width: 12px; height: 12px; background: #fff;
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 12.75l6 6 9-13.5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 12.75l6 6 9-13.5'/%3E%3C/svg%3E");
+  -webkit-mask-size: 12px 12px; mask-size: 12px 12px;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center;
+}
+#xxt-editor-modal .xxt-editor-cancel {
+  border: 1px solid #cbd5e1; background: #fff; color: #475569;
+}
+#xxt-editor-modal .xxt-editor-cancel:hover { background: #f8fafc; border-color: #94a3b8; }
+/* 窄屏：底栏只保留按钮，提示文案让位，避免按钮被挤成两行 */
+@media screen and (max-width: 640px) {
+  #xxt-editor-modal .xxt-editor-actions { gap: 8px; padding: 10px 14px; }
+  #xxt-editor-modal .xxt-editor-actions .xxt-editor-hint { display: none; }
+  #xxt-editor-modal .xxt-editor-actions button { padding: 8px 16px; }
+}
 
 /* ===== 响应式微调 ===== */
 @media screen and (max-height: 700px) {
-  #xxt-panel { top: 40px; max-height: 92vh; }
-  #xxt-panel .xxt-stat { gap: 4px; }
-  #xxt-panel .xxt-stat-item { padding: 8px 2px 5px; }
-  #xxt-panel .xxt-stat-item .xxt-num { font-size: 19px; }
+  #xxt-panel { top: 40px; max-height: calc(100vh - 56px); }
+  #xxt-panel .xxt-scroll { padding: 10px 10px 8px; }
+  #xxt-panel .xxt-stat { gap: 5px; }
+  #xxt-panel .xxt-stat-item { padding: 7px 4px 6px; }
+  #xxt-panel .xxt-stat-item .xxt-num { font-size: 18px; }
 }
 
-/* ===== 主面板紧凑布局 =====
- * 提取完成后只保留最常用的结果、操作和批量进度；格式、答案和乱序
- * 收进可展开的“导出设置”，避免在课程页上遮住过多内容。
+/* ===== 导出设置折叠区 =====
+ * 格式、答案和乱序收进「导出设置」，主面板只留结果、操作和批量进度，
+ * 避免在课程页上遮住过多内容。
  */
-#xxt-panel {
-  width:min(360px, calc(100vw - 16px)); padding:14px 14px 13px;
-  border-radius:18px; max-height:calc(100vh - 86px);
+#xxt-panel .xxt-export-settings {
+  margin-top: 0; border: 1px solid var(--xxt-border-soft); border-radius: 11px;
+  background: var(--xxt-surface-solid); overflow: hidden;
+  box-shadow: var(--xxt-shadow-card);
 }
-#xxt-panel .xxt-header { margin-bottom:10px; padding-bottom:9px; }
-#xxt-panel .xxt-header h3 { font-size:14px; letter-spacing:0; }
-#xxt-panel .xxt-feedback-link { height:24px; padding:0 7px; font-size:10px; }
-#xxt-panel .xxt-settings-btn { width:25px; height:25px; margin-right:0; }
-#xxt-panel .xxt-settings-btn svg { width:14px; height:14px; }
-
-#xxt-panel .xxt-bank-entry { min-height:48px; margin:0 0 8px; padding:7px 9px; gap:8px; border-radius:12px; }
-#xxt-panel .xxt-bank-entry-icon { width:31px; height:31px; flex-basis:31px; border-radius:9px; font-size:17px; }
-#xxt-panel .xxt-bank-entry-copy strong { font-size:12.5px; }
-#xxt-panel .xxt-bank-entry-copy small { font-size:10px; }
-#xxt-panel .xxt-bank-entry-arrow { font-size:18px; }
-#xxt-panel .xxt-tiku-promo { margin:0 0 8px; padding:7px 8px; border-radius:12px; }
-#xxt-panel .xxt-tiku-promo-top { gap:7px; }
-#xxt-panel .xxt-tiku-promo-icon { width:28px; height:28px; flex-basis:28px; border-radius:9px; font-size:15px; }
-#xxt-panel .xxt-tiku-promo-copy strong { font-size:11.5px; }
-#xxt-panel .xxt-tiku-promo-copy small { font-size:9.5px; }
-#xxt-panel .xxt-tiku-promo-actions { gap:5px; margin-top:6px; }
-#xxt-panel .xxt-tiku-promo-link { min-height:24px; padding:0 6px; border-radius:8px; font-size:9.5px; }
-
-#xxt-panel .xxt-primary-actions { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-bottom:8px; }
-#xxt-panel .xxt-primary-actions .xxt-btn-extract,
-#xxt-panel .xxt-primary-actions .xxt-btn-batch { min-height:39px; margin:0; padding:8px 7px; border-radius:11px; font-size:12px; line-height:1.25; letter-spacing:0; }
-#xxt-panel .xxt-primary-actions .xxt-btn-batch { border-style:solid; font-weight:800; }
-
-#xxt-panel .xxt-batch-live { margin:0 0 8px; padding:9px 10px; border-radius:12px; }
-#xxt-panel .xxt-batch-live-title { font-size:11.5px; }
-#xxt-panel .xxt-batch-live-state { padding:2px 6px; font-size:10px; }
-#xxt-panel .xxt-batch-live-current { margin-top:5px; font-size:11.5px; }
-#xxt-panel .xxt-batch-live-detail { margin-top:2px; font-size:10px; }
-#xxt-panel .xxt-batch-live-bar { height:5px; margin:7px 0 8px; }
-#xxt-panel .xxt-batch-live-actions { gap:6px; }
-#xxt-panel .xxt-batch-live-actions button { padding:6px 7px; font-size:10.5px; }
-#xxt-panel .xxt-batch-live-log { margin-top:7px; padding-top:6px; }
-#xxt-panel .xxt-batch-live-log-list { max-height:96px; }
-
-#xxt-panel .xxt-status { margin-bottom:8px; padding:7px 9px; font-size:11px; }
-#xxt-panel .xxt-stat { gap:6px; margin:8px 0 9px; }
-#xxt-panel .xxt-stat-item { padding:7px 3px 6px; border-radius:10px; }
-#xxt-panel .xxt-stat-item .xxt-num { font-size:18px; }
-#xxt-panel .xxt-stat-item .xxt-label { margin-top:1px; font-size:10px; }
-#xxt-panel .xxt-result-actions { margin-bottom:8px !important; }
-#xxt-panel .xxt-result-actions .xxt-btn { padding:8px 6px !important; border-radius:10px !important; font-size:11px !important; }
-#xxt-panel .xxt-selection-summary { margin:0 0 8px; padding:6px 8px; border-radius:9px; font-size:10.5px; }
-
-#xxt-panel .xxt-export-settings { margin-top:0; border:1px solid var(--xxt-border); border-radius:11px; background:var(--xxt-surface-solid); overflow:hidden; }
-#xxt-panel .xxt-export-settings summary { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 10px; cursor:pointer; color:var(--xxt-accent-strong); font-size:11px; font-weight:800; list-style:none; user-select:none; }
-#xxt-panel .xxt-export-settings summary::-webkit-details-marker { display:none; }
-#xxt-panel .xxt-export-settings summary::before { content:'›'; margin-right:5px; font-size:15px; line-height:0; transition:transform .18s ease; }
-#xxt-panel .xxt-export-settings[open] summary::before { transform:rotate(90deg); }
-#xxt-panel .xxt-export-settings summary small { margin-left:auto; color:var(--xxt-text-soft); font-size:10px; font-weight:600; }
-#xxt-panel .xxt-export-settings-body { padding:0 9px 9px; border-top:1px solid var(--xxt-border); }
-#xxt-panel .xxt-export-settings .xxt-section { margin-top:8px; padding:8px 9px; border-radius:10px; box-shadow:none; }
-#xxt-panel .xxt-export-settings .xxt-filename { padding:8px 9px; font-size:11px; }
-#xxt-panel .xxt-export-settings .xxt-format-row { gap:5px; margin-top:7px; font-size:10.5px; }
-#xxt-panel .xxt-export-settings .xxt-format-row label { gap:3px; padding:4px 7px; border-radius:12px; font-size:10px; }
-#xxt-panel .xxt-export-settings .xxt-format-row input[type="radio"] { width:12px; height:12px; }
-#xxt-panel .xxt-export-settings .xxt-toggle { gap:7px; margin-top:6px; padding:7px 8px; border-radius:9px; }
-#xxt-panel .xxt-export-settings .xxt-toggle .xxt-checkbox-wrap { width:16px; height:16px; border-radius:5px; }
-#xxt-panel .xxt-export-settings .xxt-toggle span { font-size:11px; line-height:1.35; }
-#xxt-panel .xxt-actions { grid-template-columns:repeat(3, 1fr); gap:6px; margin-top:8px; }
-#xxt-panel .xxt-actions .xxt-btn { padding:8px 4px; border-radius:10px; font-size:10.5px; }
-#xxt-panel .xxt-wrong-hint { margin-top:6px; padding:7px 8px; font-size:10.5px; }
+#xxt-panel .xxt-export-settings > summary {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 10px; cursor: pointer;
+  color: var(--xxt-text); font-size: 11.5px; font-weight: 800;
+  list-style: none; user-select: none;
+}
+#xxt-panel .xxt-export-settings > summary::-webkit-details-marker { display: none; }
+#xxt-panel .xxt-export-settings > summary::before {
+  content: ''; width: 13px; height: 13px; flex: 0 0 13px; background: #94a3b8;
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  -webkit-mask-size: 13px 13px; mask-size: 13px 13px;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center;
+  transition: transform .18s ease;
+}
+#xxt-panel .xxt-export-settings[open] > summary::before { transform: rotate(180deg); }
+#xxt-panel .xxt-export-settings > summary small { margin-left: auto; color: var(--xxt-text-mute); font-size: 10px; font-weight: 600; }
+#xxt-panel .xxt-export-settings-body { padding: 0 9px 9px; border-top: 1px solid var(--xxt-border-soft); }
+#xxt-panel .xxt-export-settings .xxt-section { margin-top: 8px; padding: 8px 9px; border-radius: 10px; box-shadow: none; }
+#xxt-panel .xxt-wrong-hint { margin-top: 6px; padding: 7px 8px; font-size: 10.5px; }
   `;
   // document-start 时 document.head 在少数页面还未创建，优先挂到根节点，
   // 避免样式注入异常导致整段脚本中断。
@@ -3919,41 +4469,76 @@ Typr["U"] = {
   // ==================== 暗色模式 CSS ====================
   const darkCSS = `
 [data-xxt-theme="dark"] #xxt-panel {
-  --xxt-surface: #1e1e2e;
+  --xxt-surface: #1b1b2b;
   --xxt-surface-solid: #181825;
+  --xxt-surface-soft: #11111b;
   --xxt-border: #313244;
-  --xxt-shadow: 0 20px 48px -12px rgba(0,0,0,0.55), 0 8px 18px -8px rgba(0,0,0,0.4);
+  --xxt-border-soft: rgba(205,214,244,0.10);
+  --xxt-shadow: 0 24px 56px -16px rgba(0,0,0,0.62), 0 8px 20px -12px rgba(0,0,0,0.5);
+  --xxt-shadow-card: 0 4px 16px -6px rgba(0,0,0,0.45);
   --xxt-text: #f5f7fb;
   --xxt-text-soft: #b8c0d8;
+  --xxt-text-mute: #7f869e;
+  --xxt-ring: 0 0 0 3px rgba(167,139,250,0.18);
   color: var(--xxt-text);
-  background: #1e1e2e;
+  background: #1b1b2b;
 }
-[data-xxt-theme="dark"] #xxt-panel::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #7c3aed, #db2777);
+[data-xxt-theme="dark"] #xxt-panel .xxt-scroll::-webkit-scrollbar-thumb { background: #4b4f6b; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-scroll::-webkit-scrollbar-thumb:hover { background: #626785; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-panel-footer {
+  background: #1b1b2b; border-top-color: rgba(205,214,244,0.10);
+}
+[data-xxt-theme="dark"] #xxt-panel .xxt-foot-btn {
+  background: rgba(205,214,244,0.08); border-color: rgba(205,214,244,0.12); color: #cdd6f4;
+}
+[data-xxt-theme="dark"] #xxt-panel .xxt-foot-btn:hover {
+  background: rgba(205,214,244,0.14); border-color: rgba(205,214,244,0.2);
+}
+[data-xxt-theme="dark"] #xxt-panel #xxt-btnDownload {
+  background: var(--xxt-grad); border-color: transparent; color: #fff;
+  box-shadow: 0 6px 16px -6px rgba(124,58,237,.8);
 }
 [data-xxt-theme="dark"] #xxt-panel .xxt-header {
   border-bottom-color: rgba(205,214,244,0.10);
+  background: rgba(27,27,43,.86);
 }
 [data-xxt-theme="dark"] #xxt-panel .xxt-header h3 {
-  -webkit-text-fill-color: #cdd6f4; color: #cdd6f4;
+  -webkit-text-fill-color: #ddd6fe; color: #ddd6fe;
   background: none;
 }
-[data-xxt-theme="dark"] #xxt-panel .xxt-bank-entry {
-  background: linear-gradient(135deg, rgba(124,58,237,0.18), rgba(219,39,119,0.13));
-  border-color: rgba(196,181,253,0.26); color: #f5f7fb;
+[data-xxt-theme="dark"] #xxt-panel .xxt-brand-icon {
+  background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+  box-shadow: 0 5px 12px -6px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.18);
 }
-[data-xxt-theme="dark"] #xxt-panel .xxt-bank-entry:hover { border-color: rgba(196,181,253,0.58); }
-[data-xxt-theme="dark"] #xxt-panel .xxt-bank-entry-icon { background: #181825; }
-[data-xxt-theme="dark"] #xxt-panel .xxt-bank-entry-copy strong { color: #e9d5ff; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-bank-entry {
+  background: #181825;
+  border-color: rgba(196,181,253,0.22); color: #f5f7fb;
+}
+[data-xxt-theme="dark"] #xxt-panel .xxt-bank-entry:hover {
+  border-color: rgba(196,181,253,0.5);
+  background: linear-gradient(90deg, #181825 0%, rgba(124,58,237,.16) 100%);
+}
+[data-xxt-theme="dark"] #xxt-panel .xxt-bank-entry-icon {
+  background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+}
+[data-xxt-theme="dark"] #xxt-panel .xxt-bank-entry-copy strong { color: #f5f3ff; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-bank-entry-copy strong em { background: rgba(124,58,237,.26); color: #ddd6fe; }
 [data-xxt-theme="dark"] #xxt-panel .xxt-bank-entry-copy small { color: #a6adc8; }
-[data-xxt-theme="dark"] #xxt-panel .xxt-bank-entry-arrow { color: #c4b5fd; }
-[data-xxt-theme="dark"] #xxt-panel .xxt-tiku-promo { background:linear-gradient(135deg, rgba(14,116,144,.22), rgba(5,150,105,.16)); border-color:rgba(125,211,252,.30); }
-[data-xxt-theme="dark"] #xxt-panel .xxt-tiku-promo-icon { background:#181825; color:#7dd3fc; }
-[data-xxt-theme="dark"] #xxt-panel .xxt-tiku-promo-copy strong { color:#bae6fd; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-bank-entry-arrow { color: #6b7391; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-bank-entry:hover .xxt-bank-entry-arrow { color: #c4b5fd; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-tiku-promo {
+  background: linear-gradient(180deg, rgba(14,116,144,.20) 0%, rgba(124,58,237,.10) 55%, #181825 100%);
+  border-color: rgba(125,211,252,.24);
+}
+[data-xxt-theme="dark"] #xxt-panel .xxt-tiku-promo-icon { background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%); color:#fff; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-tiku-promo-copy strong { color:#e0f2fe; }
 [data-xxt-theme="dark"] #xxt-panel .xxt-tiku-promo-copy small { color:#a6c6d8; }
-[data-xxt-theme="dark"] #xxt-panel .xxt-tiku-promo-link { color:#bae6fd; background:rgba(24,24,37,.74); border-color:rgba(125,211,252,.48); }
+[data-xxt-theme="dark"] #xxt-panel .xxt-tiku-promo-actions { border-top-color: rgba(205,214,244,.1); }
+[data-xxt-theme="dark"] #xxt-panel .xxt-tiku-promo-link { color:#bae6fd; background:rgba(24,24,37,.74); border-color:rgba(125,211,252,.36); }
 [data-xxt-theme="dark"] #xxt-panel .xxt-tiku-promo-link:hover { background:#0284c7; border-color:#0284c7; color:#fff; }
-[data-xxt-theme="dark"] #xxt-panel .xxt-btn-batch { background:rgba(124,58,237,.10); border-color:rgba(196,181,253,.54); color:#ddd6fe; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-btn-batch { background:#181825; border-color:rgba(196,181,253,.4); color:#ddd6fe; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-btn-batch::before { background: #c4b5fd; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-btn-batch:hover { background: rgba(124,58,237,.2); border-color:#a78bfa; }
 [data-xxt-theme="dark"] #xxt-panel .xxt-batch-live { border-color:rgba(196,181,253,.40); background:rgba(124,58,237,.12); }
 [data-xxt-theme="dark"] #xxt-panel .xxt-batch-live-title { color:#f5f3ff; }
 [data-xxt-theme="dark"] #xxt-panel .xxt-batch-live-current { color:#ddd6fe; }
@@ -3986,6 +4571,8 @@ Typr["U"] = {
   -webkit-text-fill-color: #c4b5fd; color: #c4b5fd; background: none;
 }
 [data-xxt-theme="dark"] #xxt-panel .xxt-stat-item .xxt-label { color: #a6adc8; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-stat-item::after { color: rgba(167,139,250,.10); }
+[data-xxt-theme="dark"] #xxt-panel .xxt-stat-item:nth-child(2n)::after { color: rgba(129,140,248,.10); }
 [data-xxt-theme="dark"] #xxt-panel .xxt-section {
   background: #181825; border-color: rgba(205,214,244,0.10);
 }
@@ -3994,13 +4581,13 @@ Typr["U"] = {
 }
 [data-xxt-theme="dark"] #xxt-panel .xxt-filename:focus {
   border-color: #a78bfa;
-  box-shadow: 0 0 0 4px rgba(167,139,250,0.18);
+  box-shadow: 0 0 0 3px rgba(167,139,250,0.18);
 }
-[data-xxt-theme="dark"] #xxt-panel .xxt-format-row { color: #a6adc8; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-format-row > span { color: #7f869e; }
 [data-xxt-theme="dark"] #xxt-panel .xxt-format-row label {
-  border-color: rgba(205,214,244,0.14); background: #181825; color: #cdd6f4;
+  border-color: rgba(205,214,244,0.12); background: #181825; color: #b8c0d8;
 }
-[data-xxt-theme="dark"] #xxt-panel .xxt-format-row label:hover { border-color: rgba(167,139,250,0.5); }
+[data-xxt-theme="dark"] #xxt-panel .xxt-format-row label:hover { background: #1f1f33; border-color: rgba(167,139,250,0.45); }
 [data-xxt-theme="dark"] #xxt-panel .xxt-format-row label:has(input:checked) {
   color: #fff; border-color: transparent; background: var(--xxt-grad);
 }
@@ -4010,22 +4597,48 @@ Typr["U"] = {
 [data-xxt-theme="dark"] .xxt-btn-outline:hover {
   background: var(--xxt-grad); color: #fff; border-color: transparent !important;
 }
+[data-xxt-theme="dark"] #xxt-panel .xxt-result-actions .xxt-btn {
+  background: #181825 !important; border-color: rgba(167,139,250,.34) !important; color: #c4b5fd;
+}
+[data-xxt-theme="dark"] #xxt-panel .xxt-result-actions .xxt-btn:hover {
+  background: rgba(124,58,237,.22) !important; border-color: #a78bfa !important;
+}
 [data-xxt-theme="dark"] #xxt-panel .xxt-toggle {
   background: #181825; border-color: rgba(205,214,244,0.10);
 }
-[data-xxt-theme="dark"] #xxt-panel .xxt-toggle:hover { border-color: rgba(167,139,250,0.5); }
+[data-xxt-theme="dark"] #xxt-panel .xxt-toggle:hover { background: #1f1f33; border-color: rgba(167,139,250,0.45); }
 [data-xxt-theme="dark"] #xxt-panel .xxt-toggle .xxt-checkbox-wrap {
   border-color: #585b70; background: #11111b;
 }
 [data-xxt-theme="dark"] #xxt-panel .xxt-toggle span { color: #cdd6f4; }
-[data-xxt-theme="dark"] #xxt-panel .xxt-selection-summary { background:rgba(205,214,244,.08); color:#a6adc8; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-toggle:has(input:checked) {
+  background: rgba(124,58,237,.14); border-color: rgba(167,139,250,.4);
+}
+[data-xxt-theme="dark"] #xxt-panel .xxt-toggle:has(input:checked) span { color: #ddd6fe; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-toggle .xxt-toggle-note { color: #7f869e; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-toggle:has(input:checked) .xxt-toggle-note { color: #b9a9f8; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-toggle .xxt-toggle-badge {
+  background: rgba(124,58,237,.24); color: #c4b5fd; border: 1px solid rgba(167,139,250,.32);
+}
+[data-xxt-theme="dark"] #xxt-panel #xxt-shuffle-toggle::after,
+[data-xxt-theme="dark"] #xxt-panel #xxt-explanation-toggle::after,
+[data-xxt-theme="dark"] #xxt-panel #xxt-bank-import-toggle::after { background: #6b7391; }
+[data-xxt-theme="dark"] #xxt-panel #xxt-shuffle-toggle:has(input:checked)::after,
+[data-xxt-theme="dark"] #xxt-panel #xxt-explanation-toggle:has(input:checked)::after,
+[data-xxt-theme="dark"] #xxt-panel #xxt-bank-import-toggle:has(input:checked)::after { background: #a78bfa; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-selection-summary { background:rgba(205,214,244,.07); color:#a6adc8; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-selection-summary::before { background: #a78bfa; }
 [data-xxt-theme="dark"] #xxt-panel .xxt-selection-summary.xxt-selection-limited { background:rgba(167,139,250,.16); color:#ddd6fe; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-export-settings { background: #181825; border-color: rgba(205,214,244,0.10); }
+[data-xxt-theme="dark"] #xxt-panel .xxt-export-settings > summary { color: #cdd6f4; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-export-settings > summary::before { background: #6b7391; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-export-settings-body { border-top-color: rgba(205,214,244,0.10); }
 [data-xxt-theme="dark"] #xxt-panel .xxt-wrong-hint {
   color: #f87171; background: rgba(239,68,68,0.14); border-color: rgba(239,68,68,0.3);
 }
 /* ===== 设置弹窗暗色 ===== */
-[data-xxt-theme="dark"] #xxt-panel .xxt-settings-btn { color: #a6adc8; }
-[data-xxt-theme="dark"] #xxt-panel .xxt-settings-btn:hover { background: rgba(167,139,250,0.18); color: #c4b5fd; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-settings-btn { background: rgba(205,214,244,.08); color: #a6adc8; }
+[data-xxt-theme="dark"] #xxt-panel .xxt-settings-btn:hover { background: rgba(167,139,250,0.22); color: #c4b5fd; }
 [data-xxt-theme="dark"] #xxt-settings-modal .xxt-modal-box {
   --xxt-surface-solid: #1e1e2e;
   --xxt-border: #313244;
@@ -4091,35 +4704,119 @@ Typr["U"] = {
 [data-xxt-theme="dark"] #xxt-history-modal .xxt-history-delete:hover { background: rgba(239,68,68,0.18); color: #f87171; }
 [data-xxt-theme="dark"] #xxt-history-modal .xxt-history-download { color: #585b70; }
 [data-xxt-theme="dark"] #xxt-history-modal .xxt-history-download:hover { background: rgba(167,139,250,0.18); color: #c4b5fd; }
-[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-box { background:#1e1e2e; --xxt-surface-solid:#181825; --xxt-border:#313244; --xxt-text:#f5f7fb; --xxt-text-soft:#b8c0d8; }
-[data-xxt-theme="dark"] #xxt-bank-modal .xxt-modal-header { border-bottom-color:rgba(205,214,244,.10); }
-[data-xxt-theme="dark"] #xxt-bank-modal .xxt-modal-close { background:rgba(205,214,244,.08); color:#a6adc8; }
-[data-xxt-theme="dark"] #xxt-bank-modal select, [data-xxt-theme="dark"] #xxt-bank-modal input { background:#11111b; color:#cdd6f4; border-color:#45475a; }
-[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-btn { background:#181825; color:#c4b5fd; border-color:#a78bfa; }
-[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-card { background:#181825; border-color:rgba(205,214,244,.10); }
-[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-type-head { border-bottom-color:rgba(205,214,244,.14); }
-[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-type-title, [data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-card-number, [data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-option-letter { color:#ddd6fe; }
-[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-card-number { background:rgba(124,58,237,.20); }
-[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-options { background:rgba(124,58,237,.12); }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-box {
+  background:#181825; --xxt-surface-solid:#1b1b2b; --xxt-border:#313244; --xxt-text:#f5f7fb; --xxt-text-soft:#b8c0d8; --xxt-border-soft:rgba(205,214,244,.10);
+}
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-modal-header,
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-topbar {
+  background:#181825; border-bottom-color:rgba(205,214,244,.10);
+}
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-modal-header h3 { color:#f5f7fb; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-modal-close { background:transparent; color:#7f869e; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-modal-close:hover { background:rgba(205,214,244,.1); color:#cdd6f4; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-info { background:#1b1b2b; border-color:rgba(205,214,244,.10); color:#a6adc8; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-body { background:#11111b; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-body::-webkit-scrollbar-track { background:#181825; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-body::-webkit-scrollbar-thumb { background:#4b4f6b; }
+[data-xxt-theme="dark"] #xxt-bank-modal select, [data-xxt-theme="dark"] #xxt-bank-modal input { background:#1b1b2b; color:#cdd6f4; border-color:#45475a; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-topbar select { background:#1b1b2b; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-btn { background:#1b1b2b; color:#c4b5fd; border-color:rgba(167,139,250,.34); }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-btn:hover { background:rgba(124,58,237,.22); border-color:#a78bfa; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-btn.xxt-bank-btn-primary { background:var(--xxt-grad); border-color:transparent; color:#fff; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-btn.xxt-danger { background:rgba(239,68,68,.12); border-color:rgba(248,113,113,.34); color:#fca5a5; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-btn.xxt-danger:hover { background:rgba(239,68,68,.22); border-color:#f87171; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-card { background:#1b1b2b; border-color:rgba(205,214,244,.12); box-shadow:0 1px 3px rgba(0,0,0,.4); }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-card:hover { border-color:rgba(147,197,253,.5); }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-card.xxt-bank-card-selected { border-color:#60a5fa; box-shadow:0 0 0 2px rgba(96,165,250,.2); }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-type-title { background:rgba(59,130,246,.18); color:#93c5fd; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-card-number { background:rgba(99,102,241,.2); border-color:rgba(129,140,248,.34); color:#c7d2fe; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-option-letter { color:#93c5fd; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-option { color:#b8c0d8; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-option-correct { color:#ecfdf5; background:rgba(16,185,129,.14); box-shadow:inset 2px 0 0 #34d399; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-option-correct .xxt-bank-option-letter { color:#6ee7b7; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-question-stem { color:#f5f7fb; }
 [data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-answer { color:#a7f3d0; border-color:rgba(52,211,153,.32); background:rgba(16,185,129,.13); }
-[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-card-actions button { color:#a6adc8; border-color:#45475a; }
-[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-pagination button { color:#a6adc8; border-color:#45475a; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-answer-label { background:rgba(16,185,129,.24); color:#6ee7b7; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-answer-value { color:#6ee7b7; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-card-actions { border-top-color:rgba(205,214,244,.1); }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-card-actions button { background:#11111b; color:#a6adc8; border-color:#45475a; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-card-actions button:hover { background:rgba(124,58,237,.18); border-color:#a78bfa; color:#ddd6fe; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-card-actions button.xxt-danger { color:#fca5a5; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-card-actions button.xxt-danger:hover { background:rgba(239,68,68,.2); border-color:#f87171; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-explanation { background:#11111b; border-color:rgba(205,214,244,.1); color:#b8c0d8; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-pagination button { background:#1b1b2b; color:#a6adc8; border-color:#45475a; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-pagination button:hover:not(:disabled) { background:rgba(124,58,237,.18); border-color:#a78bfa; color:#ddd6fe; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-filters button { background:#1b1b2b; color:#a6adc8; border-color:#45475a; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-filters button:hover { background:rgba(124,58,237,.18); border-color:#a78bfa; color:#ddd6fe; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-filter-divider { background:#313244; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-footer { background:#181825; border-top-color:rgba(205,214,244,.10); box-shadow:0 -4px 16px rgba(0,0,0,.32); }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-compare-btn { background:rgba(59,130,246,.14); }
+[data-xxt-theme="dark"] #xxt-bank-modal #xxt-bank-done { background:#1b1b2b; color:#cdd6f4; border-color:#45475a; }
+[data-xxt-theme="dark"] #xxt-bank-modal #xxt-bank-done:hover { background:#313244; color:#f5f7fb; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-threshold { color:#a6adc8; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-ai { border-color:rgba(167,139,250,.32); background:linear-gradient(100deg, rgba(88,28,135,.22) 0%, rgba(49,46,129,.24) 52%, rgba(30,58,138,.20) 100%); }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-ai-title { color:#ddd6fe; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-ai-state { background:rgba(124,58,237,.24); border-color:rgba(167,139,250,.4); color:#ddd6fe; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-ai-actions button { background:#1b1b2b; border-color:rgba(167,139,250,.34); color:#d8b4fe; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-ai-actions button:hover:not(:disabled) { background:rgba(147,51,234,.24); border-color:#c084fc; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-ai-actions button:disabled { background:#11111b; border-color:#313244; color:#585b70; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-ai-progress { color:#d8b4fe; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-ai-bar { background:rgba(167,139,250,.2); }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-ai-banner { background:rgba(124,58,237,.14); border-color:rgba(167,139,250,.36); color:#ddd6fe; }
+[data-xxt-theme="dark"] #xxt-bank-modal .xxt-bank-ai-banner button { background:#1b1b2b; border-color:rgba(167,139,250,.34); color:#d8b4fe; }
 [data-xxt-theme="dark"] #xxt-save-bank-modal .xxt-save-bank-box { background:#1e1e2e; --xxt-surface-solid:#181825; --xxt-border:#313244; --xxt-text:#f5f7fb; --xxt-text-soft:#b8c0d8; }
 [data-xxt-theme="dark"] #xxt-save-bank-modal .xxt-modal-header, [data-xxt-theme="dark"] #xxt-save-bank-modal .xxt-save-bank-actions { border-color:rgba(205,214,244,.10); }
 [data-xxt-theme="dark"] #xxt-save-bank-modal .xxt-modal-close { background:rgba(205,214,244,.08); color:#a6adc8; }
 [data-xxt-theme="dark"] #xxt-save-bank-modal select, [data-xxt-theme="dark"] #xxt-save-bank-modal input { background:#11111b; color:#cdd6f4; border-color:#45475a; }
 [data-xxt-theme="dark"] #xxt-save-bank-modal .xxt-save-bank-mode button, [data-xxt-theme="dark"] #xxt-save-bank-modal .xxt-save-bank-cancel { background:#181825; color:#cdd6f4; border-color:#45475a; }
 [data-xxt-theme="dark"] #xxt-save-bank-modal .xxt-save-bank-mode button.active { background:var(--xxt-grad); color:#fff; border-color:transparent; }
-[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-box { background:#1e1e2e; --xxt-surface-solid:#181825; --xxt-border:#313244; --xxt-text:#f5f7fb; --xxt-text-soft:#b8c0d8; }
-[data-xxt-theme="dark"] #xxt-editor-modal .xxt-modal-header { border-bottom-color:rgba(205,214,244,.10); }
-[data-xxt-theme="dark"] #xxt-editor-modal .xxt-modal-close { background:rgba(205,214,244,.08); color:#a6adc8; }
-[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-note { color:#a6adc8; }
-[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-selection-toolbar { border-color:#313244; background:rgba(124,58,237,.14); }
-[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-selection-toolbar button { background:#181825; color:#c4b5fd; border-color:#a78bfa; }
-[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-type { color:#c4b5fd; }
-[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-card { background:#181825; border-color:#313244; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-box {
+  background:#181825; border-color:rgba(205,214,244,.12);
+  box-shadow:0 25px 60px -15px rgba(0,0,0,.6), 0 0 1px 1px rgba(99,102,241,.12);
+}
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-modal-header { background:#181825; border-bottom-color:rgba(205,214,244,.10); }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-modal-header h3 { color:#f5f7fb; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-subtitle { color:#a6adc8; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-head-icon { box-shadow:0 4px 12px -3px rgba(124,58,237,.6); }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-modal-close { background:transparent; color:#7f869e; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-modal-close:hover { background:rgba(205,214,244,.1); color:#cdd6f4; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-scroll { background:#11111b; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-scroll::-webkit-scrollbar-track { background:#181825; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-scroll::-webkit-scrollbar-thumb { background:#4b4f6b; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-scroll::-webkit-scrollbar-thumb:hover { background:#585b70; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-selection-toolbar {
+  border-color:rgba(167,139,250,.28);
+  background:linear-gradient(90deg, rgba(88,28,135,.24) 0%, rgba(49,46,129,.2) 50%, rgba(17,17,27,.9) 100%);
+}
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-selection-toolbar button { background:#1b1b2b; color:#c4b5fd; border-color:rgba(167,139,250,.34); }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-selection-toolbar button:hover { background:rgba(124,58,237,.24); border-color:#a78bfa; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-selection-count { background:rgba(124,58,237,.24); border-color:rgba(167,139,250,.36); color:#ddd6fe; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-type-count { color:#7f869e; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-type-chip { box-shadow:0 4px 12px -4px rgba(124,58,237,.7); }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-card { background:#1b1b2b; border-color:rgba(205,214,244,.12); box-shadow:0 1px 2px rgba(0,0,0,.35); }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-card:hover { border-color:rgba(167,139,250,.5); }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-card-head { border-bottom-color:rgba(205,214,244,.1); }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-card-head .xxt-editor-label { color:#f5f7fb; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-label { color:#a6adc8; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-note { background:rgba(59,130,246,.14); border-color:rgba(96,165,250,.32); color:#93c5fd; }
 [data-xxt-theme="dark"] #xxt-editor-modal textarea, [data-xxt-theme="dark"] #xxt-editor-modal input[type="text"] { background:#11111b; color:#cdd6f4; border-color:#45475a; }
-[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-cancel { color:#cdd6f4; border-color:#45475a; }
+[data-xxt-theme="dark"] #xxt-editor-modal textarea:focus, [data-xxt-theme="dark"] #xxt-editor-modal input[type="text"]:focus { border-color:#a78bfa; box-shadow:0 0 0 3px rgba(167,139,250,.18); }
+[data-xxt-theme="dark"] #xxt-editor-modal textarea::placeholder { color:#585b70; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-answer { color:#c4b5fd; background:#242438; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-explanation { background:#242438; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-options::before { color:#a6adc8; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-letter { background:rgba(99,102,241,.18); border-color:rgba(129,140,248,.32); color:#c7d2fe; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-option.is-answer .xxt-editor-letter { background:#7c3aed; border-color:#a78bfa; color:#fff; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-option.is-answer textarea { border-color:rgba(167,139,250,.6); background:rgba(124,58,237,.16); }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-remove { color:#585b70; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-remove:hover { background:rgba(239,68,68,.18); color:#fca5a5; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-add { border-color:rgba(167,139,250,.45); color:#c4b5fd; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-add:hover { background:rgba(124,58,237,.2); border-color:#a78bfa; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-actions { background:#181825; border-top-color:rgba(205,214,244,.10); }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-hint { color:#7f869e; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-total { color:#585b70; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-cancel { background:#1b1b2b; color:#cdd6f4; border-color:#45475a; }
+[data-xxt-theme="dark"] #xxt-editor-modal .xxt-editor-cancel:hover { background:#313244; border-color:#585b70; }
 [data-xxt-theme="dark"] #xxt-preview-modal .xxt-preview-box { background:#1e1e2e; --xxt-surface-solid:#181825; --xxt-border:#313244; --xxt-text:#f5f7fb; --xxt-text-soft:#b8c0d8; }
 [data-xxt-theme="dark"] #xxt-preview-modal .xxt-modal-header { border-bottom-color:rgba(205,214,244,.10); }
 [data-xxt-theme="dark"] #xxt-preview-modal .xxt-modal-close { background:rgba(205,214,244,.08); color:#a6adc8; }
@@ -9510,8 +10207,13 @@ Typr["U"] = {
     panel.id = 'xxt-panel';
     panel.innerHTML = `
       <div class="xxt-header">
-        <h3>学习通题目一键提取导出</h3>
-        <div style="display:flex;align-items:center;gap:4px;">
+        <div class="xxt-brand">
+          <span class="xxt-brand-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.5 8 12 13l9.5-5L12 3z"/><path d="M6 10.5V16c0 1.7 2.7 3 6 3s6-1.3 6-3v-5.5"/></svg>
+          </span>
+          <h3>学习通题目一键提取导出</h3>
+        </div>
+        <div class="xxt-header-tools">
           <a class="xxt-feedback-link" id="xxt-feedbackLink"
              href="https://qm.qq.com/cgi-bin/qm/qr?k=576pg6G95bKB3A1nGXaUo3pY_xYdeBEW&amp;jump_from=webapi&amp;authKey=VEDKaRZobYLzHSWu87P/RqGVH6E7FiPrCfcNpkBURCDt3TbVCWJ8mUZ3yh3obWIa"
              target="_blank" rel="noopener noreferrer" title="加入 QQ 群反馈问题">QQ群反馈</a>
@@ -9523,94 +10225,99 @@ Typr["U"] = {
           </button>
         </div>
       </div>
-      <button id="xxt-bankBtn" class="xxt-bank-entry" type="button" title="打开题库区">
-        <span class="xxt-bank-entry-icon" aria-hidden="true">📚</span>
-        <span class="xxt-bank-entry-copy"><strong>题库区</strong><small>管理、保存和导出题目</small></span>
-        <span class="xxt-bank-entry-arrow" aria-hidden="true">›</span>
-      </button>
-      <section class="xxt-tiku-promo" aria-label="星夜题库资源入口">
-        <div class="xxt-tiku-promo-top">
-          <span class="xxt-tiku-promo-icon" aria-hidden="true">✦</span>
-          <span class="xxt-tiku-promo-copy"><strong>星夜题库 · 千万免费题库</strong><small>支持 OCS 网课助手接入与配置</small></span>
-        </div>
-        <div class="xxt-tiku-promo-actions">
-          <a class="xxt-tiku-promo-link" href="https://tiku888.top/" target="_blank" rel="noopener noreferrer" title="在新标签页打开星夜题库">进入题库 ↗</a>
-          <a class="xxt-tiku-promo-link" href="https://tiku888.top/guide" target="_blank" rel="noopener noreferrer" title="查看 OCS 网课助手接入说明">OCS 接入说明 ↗</a>
-        </div>
-      </section>
-      <div class="xxt-primary-actions">
-        <button id="xxt-btnExtract" class="xxt-btn xxt-btn-extract">提取本页</button>
-        <button id="xxt-btnBatchExtract" class="xxt-btn-batch" type="button" title="选择课程任务点后，自动提取整门课章节测验">整门课提取</button>
-      </div>
-      <section id="xxt-batch-live" class="xxt-batch-live xxt-hidden" aria-live="polite">
-        <div class="xxt-batch-live-head"><strong class="xxt-batch-live-title">整门课提取进度</strong><span class="xxt-batch-live-state" data-batch-live-state>准备中</span></div>
-        <div class="xxt-batch-live-current" data-batch-live-current></div>
-        <div class="xxt-batch-live-detail" data-batch-live-detail></div>
-        <div class="xxt-batch-live-bar"><i data-batch-live-bar></i></div>
-        <div class="xxt-batch-live-actions">
-          <button type="button" class="xxt-hidden" data-batch-live-resume>继续提取</button>
-          <button type="button" class="xxt-hidden" data-batch-live-restart>重新开始</button>
-          <button type="button" class="xxt-hidden" data-batch-live-stop>暂停提取</button>
-        </div>
-        <details class="xxt-batch-live-log">
-          <summary>运行日志（<span data-batch-live-log-count>0</span>）</summary>
-          <div class="xxt-batch-live-log-list" data-batch-live-log></div>
-        </details>
-      </section>
-      <div id="xxt-status" class="xxt-hidden"></div>
-      <div id="xxt-result" class="xxt-hidden">
-        <div id="xxt-stat" class="xxt-stat"></div>
-        <div class="xxt-result-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-          <button type="button" id="xxt-btnEdit" class="xxt-btn xxt-btn-outline" style="width:100%;padding:10px;border-radius:12px;font-weight:700;cursor:pointer;pointer-events:auto;">查看、编辑 / 选择题目</button>
-          <button type="button" id="xxt-btnSaveToBank" class="xxt-btn xxt-btn-outline" style="width:100%;padding:10px;border-radius:12px;font-weight:700;cursor:pointer;pointer-events:auto;">存入题库</button>
-        </div>
-        <div id="xxt-selection-summary" class="xxt-selection-summary"></div>
-        <details class="xxt-export-settings">
-          <summary><span>导出设置</span><small>格式、答案与顺序</small></summary>
-          <div class="xxt-export-settings-body">
-            <div class="xxt-section">
-              <input type="text" id="xxt-filename" class="xxt-filename xxt-hidden" placeholder="文件名（默认自动生成）">
-              <div class="xxt-format-row">
-                <span>输出格式</span>
-                <label><input type="radio" name="xxt-fmt" value="word" checked> Word 试卷</label>
-                <label><input type="radio" name="xxt-fmt" value="txt"> TXT</label>
-                <label><input type="radio" name="xxt-fmt" value="md"> MD</label>
-                <label><input type="radio" name="xxt-fmt" value="pdf"> PDF</label>
-              </div>
-            </div>
-            <label class="xxt-toggle" id="xxt-ans-toggle">
-              <input type="checkbox" id="xxt-chkAnswers">
-              <div class="xxt-checkbox-wrap"></div>
-              <span>附加答案</span>
-            </label>
-            <label class="xxt-toggle xxt-hidden" id="xxt-wrong-toggle">
-              <input type="checkbox" id="xxt-chkWrong">
-              <div class="xxt-checkbox-wrap"></div>
-              <span>附加错题</span>
-            </label>
-            <label class="xxt-toggle" id="xxt-shuffle-toggle">
-              <input type="checkbox" id="xxt-chkShuffle">
-              <div class="xxt-checkbox-wrap"></div>
-              <span>题目乱序</span>
-            </label>
-            <label class="xxt-toggle" id="xxt-explanation-toggle">
-              <input type="checkbox" id="xxt-chkExplanation">
-              <div class="xxt-checkbox-wrap"></div>
-              <span>包含解析（AI 或导入时识别的解析）</span>
-            </label>
-            <label class="xxt-toggle" id="xxt-bank-import-toggle">
-              <input type="checkbox" id="xxt-chkBankImport">
-              <div class="xxt-checkbox-wrap"></div>
-              <span>题库导入格式（学习通智能导入兼容）</span>
-            </label>
-            <div id="xxt-wrong-hint" class="xxt-wrong-hint xxt-hidden"></div>
+      <div class="xxt-scroll">
+        <button id="xxt-bankBtn" class="xxt-bank-entry" type="button" title="打开题库区">
+          <span class="xxt-bank-entry-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.3v12.4"/><path d="M12 6.3C10.8 5.5 9.3 5 7.5 5S4.2 5.5 3 6.3v12.4C4.2 18 5.8 18 7.5 18s3.3.5 4.5 1.3"/><path d="M12 6.3C13.2 5.5 14.8 5 16.5 5S19.8 5.5 21 6.3v12.4c-1.2-.8-2.8-1.3-4.5-1.3s-3.3.5-4.5 1.3"/></svg>
+          </span>
+          <span class="xxt-bank-entry-copy"><strong>题库区<em>快捷库</em></strong><small>管理、保存和导出题目</small></span>
+          <span class="xxt-bank-entry-arrow" aria-hidden="true"></span>
+        </button>
+        <section class="xxt-tiku-promo" aria-label="星夜题库资源入口">
+          <div class="xxt-tiku-promo-top">
+            <span class="xxt-tiku-promo-icon" aria-hidden="true">✦</span>
+            <span class="xxt-tiku-promo-copy"><strong>星夜题库 · 千万免费题库</strong><small>支持 OCS 网课助手接入与配置</small></span>
           </div>
-        </details>
-        <div class="xxt-actions">
-          <button id="xxt-btnPreview" class="xxt-btn xxt-btn-outline">👁 预览</button>
-          <button id="xxt-btnDownload" class="xxt-btn xxt-btn-outline">&#8681; 下载</button>
-          <button id="xxt-btnCopy" class="xxt-btn xxt-btn-outline">&#128203; 复制文本</button>
+          <div class="xxt-tiku-promo-actions">
+            <a class="xxt-tiku-promo-link" href="https://tiku888.top/" target="_blank" rel="noopener noreferrer" title="在新标签页打开星夜题库">进入题库 ↗</a>
+            <a class="xxt-tiku-promo-link" href="https://tiku888.top/guide" target="_blank" rel="noopener noreferrer" title="查看 OCS 网课助手接入说明">OCS 接入说明 ↗</a>
+          </div>
+        </section>
+        <div class="xxt-primary-actions">
+          <button id="xxt-btnExtract" class="xxt-btn xxt-btn-extract">提取本页</button>
+          <button id="xxt-btnBatchExtract" class="xxt-btn-batch" type="button" title="选择课程任务点后，自动提取整门课章节测验">整门课提取</button>
         </div>
+        <section id="xxt-batch-live" class="xxt-batch-live xxt-hidden" aria-live="polite">
+          <div class="xxt-batch-live-head"><strong class="xxt-batch-live-title">整门课提取进度</strong><span class="xxt-batch-live-state" data-batch-live-state>准备中</span></div>
+          <div class="xxt-batch-live-current" data-batch-live-current></div>
+          <div class="xxt-batch-live-detail" data-batch-live-detail></div>
+          <div class="xxt-batch-live-bar"><i data-batch-live-bar></i></div>
+          <div class="xxt-batch-live-actions">
+            <button type="button" class="xxt-hidden" data-batch-live-resume>继续提取</button>
+            <button type="button" class="xxt-hidden" data-batch-live-restart>重新开始</button>
+            <button type="button" class="xxt-hidden" data-batch-live-stop>暂停提取</button>
+          </div>
+          <details class="xxt-batch-live-log">
+            <summary>运行日志（<span data-batch-live-log-count>0</span>）</summary>
+            <div class="xxt-batch-live-log-list" data-batch-live-log></div>
+          </details>
+        </section>
+        <div id="xxt-status" class="xxt-hidden"></div>
+        <div id="xxt-result" class="xxt-hidden">
+          <div id="xxt-stat" class="xxt-stat"></div>
+          <div class="xxt-result-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px;">
+            <button type="button" id="xxt-btnEdit" class="xxt-btn xxt-btn-outline" style="width:100%;font-weight:700;cursor:pointer;pointer-events:auto;">查看、编辑 / 选择题目</button>
+            <button type="button" id="xxt-btnSaveToBank" class="xxt-btn xxt-btn-outline" style="width:100%;font-weight:700;cursor:pointer;pointer-events:auto;">存入题库</button>
+          </div>
+          <div id="xxt-selection-summary" class="xxt-selection-summary"></div>
+          <details class="xxt-export-settings">
+            <summary><span>导出设置</span><small>格式、答案与顺序</small></summary>
+            <div class="xxt-export-settings-body">
+              <div class="xxt-section">
+                <input type="text" id="xxt-filename" class="xxt-filename xxt-hidden" placeholder="文件名（默认自动生成）">
+                <div class="xxt-format-row">
+                  <span>输出格式</span>
+                  <label><input type="radio" name="xxt-fmt" value="word" checked> Word 试卷</label>
+                  <label><input type="radio" name="xxt-fmt" value="txt"> TXT</label>
+                  <label><input type="radio" name="xxt-fmt" value="md"> MD</label>
+                  <label><input type="radio" name="xxt-fmt" value="pdf"> PDF</label>
+                </div>
+              </div>
+              <label class="xxt-toggle" id="xxt-ans-toggle">
+                <input type="checkbox" id="xxt-chkAnswers">
+                <div class="xxt-checkbox-wrap"></div>
+                <span>附加答案</span>
+                <span class="xxt-toggle-badge">推荐</span>
+              </label>
+              <label class="xxt-toggle xxt-hidden" id="xxt-wrong-toggle">
+                <input type="checkbox" id="xxt-chkWrong">
+                <div class="xxt-checkbox-wrap"></div>
+                <span>附加错题</span>
+              </label>
+              <label class="xxt-toggle" id="xxt-shuffle-toggle">
+                <input type="checkbox" id="xxt-chkShuffle">
+                <div class="xxt-checkbox-wrap"></div>
+                <span>题目乱序</span>
+              </label>
+              <label class="xxt-toggle" id="xxt-explanation-toggle">
+                <input type="checkbox" id="xxt-chkExplanation">
+                <div class="xxt-checkbox-wrap"></div>
+                <span>包含解析 <span class="xxt-toggle-note">（AI 或导入时识别的解析）</span></span>
+              </label>
+              <label class="xxt-toggle" id="xxt-bank-import-toggle">
+                <input type="checkbox" id="xxt-chkBankImport">
+                <div class="xxt-checkbox-wrap"></div>
+                <span>题库导入格式 <span class="xxt-toggle-note">（学习通智能导入兼容）</span></span>
+              </label>
+              <div id="xxt-wrong-hint" class="xxt-wrong-hint xxt-hidden"></div>
+            </div>
+          </details>
+        </div>
+      </div>
+      <div class="xxt-panel-footer">
+        <button id="xxt-btnPreview" class="xxt-foot-btn" type="button">预览</button>
+        <button id="xxt-btnDownload" class="xxt-foot-btn" type="button">下载</button>
+        <button id="xxt-btnCopy" class="xxt-foot-btn" type="button">复制文本</button>
       </div>
     `;
     document.body.appendChild(panel);
@@ -11872,70 +12579,90 @@ Typr["U"] = {
     bankModal.innerHTML = `
       <div class="xxt-bank-box">
         <div class="xxt-modal-header">
-          <h3>📚 题库区</h3>
-          <button class="xxt-modal-close" id="xxt-bank-close">&times;</button>
+          <div class="xxt-bank-title">
+            <span class="xxt-bank-title-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.3v12.4"/><path d="M12 6.3C10.8 5.5 9.3 5 7.5 5S4.2 5.5 3 6.3v12.4C4.2 18 5.8 18 7.5 18s3.3.5 4.5 1.3"/><path d="M12 6.3C13.2 5.5 14.8 5 16.5 5S19.8 5.5 21 6.3v12.4c-1.2-.8-2.8-1.3-4.5-1.3s-3.3.5-4.5 1.3"/></svg>
+            </span>
+            <h3>题库区</h3>
+          </div>
+          <button class="xxt-modal-close" id="xxt-bank-close" aria-label="关闭面板">&times;</button>
         </div>
-        <div class="xxt-bank-toolbar">
+        <div class="xxt-bank-topbar">
           <select id="xxt-bank-select" aria-label="当前题库"></select>
-          <button class="xxt-bank-btn" id="xxt-bank-new">＋新建</button>
-          <button class="xxt-bank-btn" id="xxt-bank-rename">改名</button>
-          <button class="xxt-bank-btn xxt-danger" id="xxt-bank-delete">删除</button>
+          <div class="xxt-bank-topbar-actions">
+            <button class="xxt-bank-btn xxt-bank-btn-primary" id="xxt-bank-new">＋ 新建</button>
+            <button class="xxt-bank-btn" id="xxt-bank-rename">改名</button>
+            <button class="xxt-bank-btn xxt-danger" id="xxt-bank-delete">删除</button>
+          </div>
         </div>
         <div class="xxt-bank-info" id="xxt-bank-info"></div>
-        <div class="xxt-bank-toolbar">
-          <button class="xxt-bank-btn" id="xxt-bank-load">载入到当前面板</button>
-          <button class="xxt-bank-btn" id="xxt-bank-save-current">存入当前题目</button>
-          <button class="xxt-bank-btn" id="xxt-bank-add-question">手动添加题目</button>
-          <button class="xxt-bank-btn" id="xxt-bank-export">导出题库</button>
-          <button class="xxt-bank-btn" id="xxt-bank-import">导入题库</button>
-          <button class="xxt-bank-btn xxt-danger" id="xxt-bank-clear">清空当前库</button>
-          <input id="xxt-bank-file" type="file" accept=".json,.txt,.md,.markdown,.docx,.pdf,application/json,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf" style="display:none">
-        </div>
-        <div class="xxt-bank-search"><input id="xxt-bank-search-input" type="text" placeholder="搜索当前题库的题干、选项或答案"><button class="xxt-bank-btn" id="xxt-bank-search-btn">检索</button></div>
-        <div class="xxt-bank-ai" id="xxt-bank-ai">
-          <div class="xxt-bank-ai-head">
-            <span class="xxt-bank-ai-title">✦ AI 补答案 / 纠错审核</span>
-            <span class="xxt-bank-ai-state" id="xxt-bank-ai-state"></span>
+        <div class="xxt-bank-body">
+          <div class="xxt-bank-toolbar">
+            <button class="xxt-bank-btn" id="xxt-bank-load">载入到当前面板</button>
+            <button class="xxt-bank-btn" id="xxt-bank-save-current">存入当前题目</button>
+            <button class="xxt-bank-btn" id="xxt-bank-add-question">手动添加题目</button>
+            <button class="xxt-bank-btn" id="xxt-bank-export">导出题库</button>
+            <button class="xxt-bank-btn" id="xxt-bank-import">导入题库</button>
+            <button class="xxt-bank-btn xxt-danger xxt-bank-btn-push" id="xxt-bank-clear">清空当前库</button>
+            <input id="xxt-bank-file" type="file" accept=".json,.txt,.md,.markdown,.docx,.pdf,application/json,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf" style="display:none">
           </div>
-          <div class="xxt-bank-ai-actions" id="xxt-bank-ai-actions">
-            <button type="button" data-ai-action="fill-missing">一键补充无答案题</button>
-            <button type="button" data-ai-action="fill-explanation">一键补全解析</button>
-            <button type="button" data-ai-action="classify">AI 审核归类待定题型</button>
-            <button type="button" data-ai-action="review-all">一键审核全部题目</button>
-            <button type="button" data-ai-action="fix-selected">处理勾选题目</button>
-            <button type="button" data-ai-action="stop" disabled>停止</button>
-            <button type="button" data-ai-action="settings">AI 设置</button>
+          <div class="xxt-bank-search">
+            <span class="xxt-bank-search-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+            </span>
+            <input id="xxt-bank-search-input" type="search" placeholder="搜索当前题库的题干、选项或答案">
+            <button class="xxt-bank-btn xxt-bank-btn-primary" id="xxt-bank-search-btn">检索</button>
           </div>
-          <div class="xxt-bank-ai-progress" id="xxt-bank-ai-progress" hidden></div>
-          <div class="xxt-bank-ai-bar" id="xxt-bank-ai-bar" hidden><i></i></div>
+          <div class="xxt-bank-ai" id="xxt-bank-ai">
+            <div class="xxt-bank-ai-head">
+              <span class="xxt-bank-ai-title">✦ AI 补答案 / 纠错审核</span>
+              <span class="xxt-bank-ai-state" id="xxt-bank-ai-state"></span>
+            </div>
+            <div class="xxt-bank-ai-actions" id="xxt-bank-ai-actions">
+              <button type="button" data-ai-action="fill-missing">一键补充无答案题</button>
+              <button type="button" data-ai-action="fill-explanation">一键补全解析</button>
+              <button type="button" data-ai-action="classify">AI 审核归类待定题型</button>
+              <button type="button" data-ai-action="review-all">一键审核全部题目</button>
+              <button type="button" data-ai-action="fix-selected">处理勾选题目</button>
+              <button type="button" data-ai-action="stop" disabled>停止</button>
+              <button type="button" data-ai-action="settings">AI 设置</button>
+            </div>
+            <div class="xxt-bank-ai-progress" id="xxt-bank-ai-progress" hidden></div>
+            <div class="xxt-bank-ai-bar" id="xxt-bank-ai-bar" hidden><i></i></div>
+          </div>
+          <div class="xxt-bank-filters" id="xxt-bank-filters">
+            <select id="xxt-bank-type-filter" aria-label="按题型筛选">
+              <option value="">全部题型</option>
+              <option value="单选">单选题</option>
+              <option value="多选">多选题</option>
+              <option value="填空">填空题</option>
+              <option value="判断">判断题</option>
+              <option value="简答">简答题</option>
+              <option value="不确定">待归类</option>
+            </select>
+            <select id="xxt-bank-status-filter" aria-label="按状态筛选">
+              <option value="">全部状态</option>
+              <option value="missing">无答案</option>
+              <option value="no-explanation">无解析</option>
+              <option value="unsure">待归类</option>
+              <option value="ai">AI 答案</option>
+              <option value="low">低置信度</option>
+            </select>
+            <span class="xxt-bank-filter-divider" aria-hidden="true"></span>
+            <button type="button" id="xxt-bank-select-all">全选当前页</button>
+            <button type="button" id="xxt-bank-select-none">取消选择</button>
+            <button type="button" id="xxt-bank-select-missing">选中所有无答案</button>
+            <span class="xxt-bank-filter-count" id="xxt-bank-filter-count"></span>
+          </div>
+          <div class="xxt-bank-list" id="xxt-bank-list"></div>
         </div>
-        <div class="xxt-bank-filters" id="xxt-bank-filters">
-          <select id="xxt-bank-type-filter" aria-label="按题型筛选">
-            <option value="">全部题型</option>
-            <option value="单选">单选题</option>
-            <option value="多选">多选题</option>
-            <option value="填空">填空题</option>
-            <option value="判断">判断题</option>
-            <option value="简答">简答题</option>
-            <option value="不确定">待归类</option>
-          </select>
-          <select id="xxt-bank-status-filter" aria-label="按状态筛选">
-            <option value="">全部状态</option>
-            <option value="missing">无答案</option>
-            <option value="no-explanation">无解析</option>
-            <option value="unsure">待归类</option>
-            <option value="ai">AI 答案</option>
-            <option value="low">低置信度</option>
-          </select>
-          <button type="button" id="xxt-bank-select-all">全选当前页</button>
-          <button type="button" id="xxt-bank-select-none">取消选择</button>
-          <button type="button" id="xxt-bank-select-missing">选中所有无答案</button>
-          <span class="xxt-bank-filter-count" id="xxt-bank-filter-count"></span>
-        </div>
-        <div class="xxt-bank-list" id="xxt-bank-list"></div>
-        <div class="xxt-bank-compare">
-          <button class="xxt-bank-btn" id="xxt-bank-compare-btn">将当前页面与题库对比</button>
-          <label style="font-size:11px;color:var(--xxt-text-soft);">匹配阈值 <input id="xxt-bank-threshold" type="number" min="50" max="100" step="1" value="${currentSettings.bankThreshold}" style="width:58px">%</label>
+        <div class="xxt-bank-footer xxt-bank-compare">
+          <button class="xxt-bank-btn xxt-bank-compare-btn" id="xxt-bank-compare-btn">将当前页面与题库对比</button>
+          <label class="xxt-bank-threshold">匹配阈值
+            <input id="xxt-bank-threshold" type="number" min="50" max="100" step="1" value="${currentSettings.bankThreshold}">
+            <span>%</span>
+          </label>
+          <button class="xxt-bank-btn" id="xxt-bank-done">完成并关闭</button>
           <div class="xxt-bank-compare-status" id="xxt-bank-compare-status"></div>
         </div>
       </div>
@@ -12219,10 +12946,13 @@ Typr["U"] = {
       const options = Array.isArray(question.options) ? question.options : [];
       const stem = bankContentDisplayText(questionContent(question), question.stem);
       const answer = bankContentDisplayText(answerContent(question), question.correctAnswer);
+      // 正确答案里出现的选项字母加重显示，长选项列表里一眼能看到选的是哪个。
+      const answerLetters = new Set((String(answer || '').toUpperCase().match(/[A-H]/g) || []));
       const optionRows = options.map((option, optionIndex) => {
         const letter = String(option && option.letter || String.fromCharCode(65 + optionIndex)).trim().toUpperCase() || String.fromCharCode(65 + optionIndex);
         const text = bankContentDisplayText(optionContent(option || {}), option && option.text);
-        return '<div class="xxt-bank-option"><span class="xxt-bank-option-letter">' + escapeHtml(letter) + '.</span><span class="xxt-bank-option-text">' + bankTextToHtml(text, '选项内容为空') + '</span></div>';
+        const isCorrect = answerLetters.has(letter);
+        return '<div class="xxt-bank-option' + (isCorrect ? ' xxt-bank-option-correct' : '') + '"><span class="xxt-bank-option-letter">' + escapeHtml(letter) + '.</span><span class="xxt-bank-option-text">' + bankTextToHtml(text, '选项内容为空') + '</span></div>';
       }).join('');
       const optionBlock = options.length
         ? '<div class="xxt-bank-options"><div class="xxt-bank-options-label">选项</div>' + optionRows + '</div>'
@@ -13139,6 +13869,9 @@ Typr["U"] = {
     els.bankBtn.addEventListener('click', () => { refreshBankModal(true); bankModal.classList.add('open'); });
     els.btnSaveToBank.addEventListener('click', openSaveCurrentToBankDialog);
     bankModal.querySelector('#xxt-bank-close').addEventListener('click', () => bankModal.classList.remove('open'));
+    // 底部「完成并关闭」与右上角 × 等价，方便长列表滚动后直接收尾。
+    const bankDoneBtn = bankModal.querySelector('#xxt-bank-done');
+    if (bankDoneBtn) bankDoneBtn.addEventListener('click', () => bankModal.classList.remove('open'));
     bankModal.addEventListener('click', event => { if (event.target === bankModal) bankModal.classList.remove('open'); });
     document.addEventListener('keydown', event => { if (event.key === 'Escape' && bankModal.classList.contains('open')) bankModal.classList.remove('open'); }, { signal: uiEventController.signal });
 
@@ -13148,14 +13881,27 @@ Typr["U"] = {
     editorModal.innerHTML = `
       <div class="xxt-editor-box">
         <div class="xxt-modal-header">
-          <h3>在线查看 / 编辑题目</h3>
-          <button class="xxt-modal-close" id="xxt-editor-close">&times;</button>
+          <div class="xxt-editor-head">
+            <span class="xxt-editor-head-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/><path d="M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
+            </span>
+            <div class="xxt-editor-head-copy">
+              <h3>在线查看 / 编辑题目</h3>
+              <p class="xxt-editor-subtitle">可修改题干、选项和正确答案；勾选题目后，下载、复制和存入题库只使用所选题目。图片以〔图片1〕形式保留。</p>
+            </div>
+          </div>
+          <button class="xxt-modal-close" id="xxt-editor-close" type="button" aria-label="关闭窗口">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18 18 6M6 6l12 12"/></svg>
+          </button>
         </div>
-        <p class="xxt-editor-note">可修改题干、选项和正确答案；勾选题目后，下载、复制和存入题库只使用所选题目。图片以〔图片1〕形式保留。</p>
-        <div class="xxt-editor-list" id="xxt-editor-list"></div>
+        <div class="xxt-editor-scroll">
+          <div class="xxt-editor-list" id="xxt-editor-list"></div>
+        </div>
         <div class="xxt-editor-actions">
-          <button class="xxt-editor-cancel" id="xxt-editor-cancel">取消</button>
-          <button class="xxt-editor-save" id="xxt-editor-save">保存修改</button>
+          <span class="xxt-editor-hint">AI 结果与手动修改需点「保存修改」才会生效</span>
+          <span class="xxt-editor-total" id="xxt-editor-total"></span>
+          <button class="xxt-editor-cancel" id="xxt-editor-cancel" type="button">取消</button>
+          <button class="xxt-editor-save" id="xxt-editor-save" type="button">保存修改</button>
         </div>
       </div>
     `;
@@ -13210,9 +13956,23 @@ Typr["U"] = {
           item.dataset.letter = next;
           item.querySelector('.xxt-editor-letter').textContent = `${next}.`;
         });
+        // 选项重排后字母变了，正确答案的高亮要跟着重算。
+        const hostCard = container.closest('.xxt-editor-card');
+        if (hostCard) markAnswerOptions(hostCard, (hostCard.querySelector('.xxt-editor-answer') || {}).value || '');
       });
       row.append(letterEl, input, remove);
       container.appendChild(row);
+    }
+
+    // 正确答案里的字母对应的选项块高亮（题库区同款视觉），
+    // 解析失败（如填空/简答的整段答案）时不动任何选项。
+    function markAnswerOptions(card, answerText) {
+      if (!card) return;
+      const letters = new Set(String(answerText || '').toUpperCase().match(/[A-H]/g) || []);
+      card.querySelectorAll('.xxt-editor-option').forEach(row => {
+        const letter = String(row.dataset.letter || '').toUpperCase();
+        row.classList.toggle('is-answer', letters.has(letter));
+      });
     }
 
     function isEditorQuestionSelected(type, question) {
@@ -13220,6 +13980,9 @@ Typr["U"] = {
     }
 
     function updateEditorSelectionUI() {
+      const cards = editorList.querySelectorAll('.xxt-editor-card');
+      const totalEl = editorModal.querySelector('#xxt-editor-total');
+      if (totalEl) totalEl.textContent = cards.length ? `共 ${cards.length} 题` : '';
       const toolbar = editorModal.querySelector('#xxt-editor-selection-toolbar');
       if (!toolbar) return;
       const checkboxes = Array.from(editorList.querySelectorAll('.xxt-editor-select'));
@@ -13290,6 +14053,8 @@ Typr["U"] = {
           else if (action === 'fix-selected') runEditorAiBatch('fix-selected');
         });
         editorList.before(aiBar);
+        // 视觉顺序：AI 工具条在上，勾选工具条紧跟其后，再进入题目列表。
+        if (toolbar.parentElement === aiBar.parentElement) aiBar.after(toolbar);
         updateEditorAiBar();
       }
       typeOrder.forEach(qtype => {
@@ -13297,7 +14062,7 @@ Typr["U"] = {
         if (!questions.length) return;
         const typeTitle = document.createElement('div');
         typeTitle.className = 'xxt-editor-type';
-        typeTitle.textContent = `${editorTypeLabels[qtype] || qtype}（${questions.length}题）`;
+        typeTitle.innerHTML = `<span class="xxt-editor-type-chip">${editorTypeLabels[qtype] || qtype}</span><span class="xxt-editor-type-count">共 ${questions.length} 题</span>`;
         editorList.appendChild(typeTitle);
         questions.forEach((q, qIndex) => {
           const card = document.createElement('div');
@@ -13308,8 +14073,10 @@ Typr["U"] = {
           // hasAnswer / hasExplanation 供批量筛选使用；输入框变化时同步刷新。
           card.dataset.hasAnswer = String(!!String(richTextOnly(answerContent(q)) || '').trim());
           card.dataset.hasExplanation = String(!!String(q.explanation || '').trim());
+          const cardHead = document.createElement('div');
+          cardHead.className = 'xxt-editor-card-head';
           const titleRow = document.createElement('div');
-          titleRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;';
+          titleRow.className = 'xxt-editor-card-head-left';
           const title = document.createElement('div');
           title.className = 'xxt-editor-label';
           title.textContent = `第 ${qIndex + 1} 题`;
@@ -13337,6 +14104,7 @@ Typr["U"] = {
           aiOne.title = '用 AI 给出该题答案，确认后填入正确答案框（不会直接保存）';
           aiOne.addEventListener('click', () => runEditorAiForCard(card));
           titleRow.insertBefore(aiOne, title);
+          cardHead.appendChild(titleRow);
 
           const removeQuestion = document.createElement('button');
           removeQuestion.type = 'button';
@@ -13344,8 +14112,8 @@ Typr["U"] = {
           removeQuestion.title = '删除整道题';
           removeQuestion.textContent = '删除本题';
           removeQuestion.addEventListener('click', () => card.remove());
-          titleRow.appendChild(removeQuestion);
-          card.appendChild(titleRow);
+          cardHead.appendChild(removeQuestion);
+          card.appendChild(cardHead);
 
           const stemField = makeEditorField('题干', 'textarea', 'xxt-editor-stem', richContentToEditableText(questionContent(q)));
           stemField.field.rows = 2;
@@ -13377,17 +14145,24 @@ Typr["U"] = {
           answerField.field.rows = 1;
           answerField.field.addEventListener('input', () => {
             card.dataset.hasAnswer = String(!!answerField.field.value.trim());
+            markAnswerOptions(card, answerField.field.value);
             updateEditorSelectionUI();
           });
-          card.appendChild(answerField.wrap);
+          // 正确答案与解析并排：答案窄、解析宽，和题库区的卡片密度一致。
+          const answerRow = document.createElement('div');
+          answerRow.className = 'xxt-editor-answer-row';
+          answerRow.appendChild(answerField.wrap);
 
           // 解析输入框：可手工编辑，也可由 AI 填充。
           const explanationField = makeEditorField('解析（可留空）', 'textarea', 'xxt-editor-explanation', String(q.explanation || ''));
-          explanationField.field.rows = 2;
+          explanationField.field.rows = 1;
+          explanationField.field.placeholder = '暂无解析，可用上方「补全解析」生成';
           explanationField.field.addEventListener('input', () => {
             card.dataset.hasExplanation = String(!!explanationField.field.value.trim());
           });
-          card.appendChild(explanationField.wrap);
+          answerRow.appendChild(explanationField.wrap);
+          card.appendChild(answerRow);
+          markAnswerOptions(card, answerField.field.value);
 
           // AI 结果/解析展示区（初始隐藏）。
           const aiTip = document.createElement('div');
@@ -13452,6 +14227,7 @@ Typr["U"] = {
       if (!answerInput) return false;
       answerInput.value = result.answer;
       card.dataset.hasAnswer = 'true';
+      markAnswerOptions(card, result.answer);
       if (result.explanation) {
         card.dataset.aiExplanation = result.explanation;
       }
@@ -14034,7 +14810,7 @@ Typr["U"] = {
           showStatus(els, 'JSON 导出失败: ' + (error && error.message ? error.message : error), 'err');
         } finally {
           els.btnDownload.disabled = false;
-          els.btnDownload.textContent = '\u21E9 下载';
+          els.btnDownload.textContent = '下载';
         }
         return;
       }
@@ -14057,7 +14833,7 @@ Typr["U"] = {
           showStatus(els, 'PDF 导出失败: ' + err.message, 'err');
         }
         els.btnDownload.disabled = false;
-        els.btnDownload.textContent = '\u21E9 下载';
+        els.btnDownload.textContent = '下载';
         return;
       }
 
@@ -14092,7 +14868,7 @@ Typr["U"] = {
           showStatus(els, 'Word 导出失败: ' + err.message, 'err');
         }
         els.btnDownload.disabled = false;
-        els.btnDownload.textContent = '\u21E9 下载';
+        els.btnDownload.textContent = '下载';
         return;
       }
 
