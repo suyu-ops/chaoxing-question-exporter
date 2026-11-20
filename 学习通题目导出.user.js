@@ -2,7 +2,7 @@
 // @name         学习通-随堂测验/章节测试/作业/考试题目一键提取导出pdf/word/txt/markdown格式文档
 // @namespace    https://tiku888.top/
 // @license      GPL-3.0
-// @version      1.11.0
+// @version      1.11.1
 // @run-at       document-start
 // @description  一键提取学习通作业题目，支持富文本（图文混排）及 Word/PDF/TXT/MD 四种格式导出、按课程任务点自动逐个提取章节测验、题目勾选后按范围导出，答案/错题收集，独立题库区（新建/存取/编辑/手动添加/导入/四种格式导出/题库对比），暗色模式，快捷键，iframe 提取
 // @author       suyu
@@ -6512,6 +6512,8 @@ Typr["U"] = {
 
   function xxtOpenDialog(options) {
     const overlay = document.createElement('div');
+    // 打上自己的标记，供提取逻辑排除（见 XXT_OWN_UI_SELECTOR）。
+    overlay.className = 'xxt-own-ui';
     overlay.style.cssText = XXT_DIALOG_CSS;
     const box = document.createElement('div');
     box.style.cssText = [
@@ -6884,6 +6886,48 @@ Typr["U"] = {
   });
 
   // ==================== 提取逻辑 ====================
+  // 脚本自己的界面必须从「题目 DOM」里彻底排除。
+  // 题库筛选下拉里有 <option>单选题</option>、<option>判断题</option> 这类文本，
+  // 它们同时命中题型标签的正则；一旦被当成题型分区，Range 截取题干时就会
+  // 从真实题目一路截到面板里，把整块界面文案塞进题干。
+  const XXT_OWN_UI_SELECTOR = [
+    '.xxt-own-ui',
+    '#xxt-panel', '#xxt-settings-modal', '#xxt-history-modal', '#xxt-bank-modal',
+    '#xxt-save-bank-modal', '#xxt-batch-modal', '#xxt-batch-progress-card',
+    '#xxt-editor-modal', '#xxt-editor-selection-toolbar', '#xxt-editor-ai-bar',
+    '#xxt-preview-modal', '#xxt-batch-live'
+  ].join(', ');
+
+  function isXxtOwnUiElement(node) {
+    if (!node || node.nodeType !== 1) return false;
+    try { return !!(node.closest && node.closest(XXT_OWN_UI_SELECTOR)); } catch (e) { return false; }
+  }
+
+  // 提取全部在页面范围内查元素：统一剔除脚本自身界面里的节点。
+  function xxtPageQueryAll(root, selector) {
+    const scope = root && root.querySelectorAll ? root : document;
+    let nodes;
+    try { nodes = Array.from(scope.querySelectorAll(selector)); } catch (e) { return []; }
+    return nodes.filter(node => !isXxtOwnUiElement(node));
+  }
+
+  // 单题题干超过这个字数基本只能是「截取范围跨出了题目区域」的产物：
+  // 真实题目（含材料题）远不到这个量级，而误截会把整页/整块界面卷进来。
+  const XXT_MAX_STEM_TEXT_LENGTH = 1200;
+
+  // Range 的两个边界必须落在同一块题目区域内，否则中间会夹进无关内容。
+  // 判据：一方包含另一方，或两者最近的共同祖先不是 body/html。
+  function sharesQuestionScope(a, b) {
+    if (!a || !b) return false;
+    if (a === b) return true;
+    if (a.contains(b) || b.contains(a)) return true;
+    let common = a.parentElement;
+    while (common && !common.contains(b)) common = common.parentElement;
+    if (!common) return false;
+    const doc = common.ownerDocument || document;
+    return common !== doc.body && common !== doc.documentElement;
+  }
+
   // 题型识别必须「具体优先于宽泛」。
   // 原实现把宽泛的 '选择题' 放在 TYPE_MAP 里且靠前/同轮匹配，
   // 于是「多项选择题」「不定项选择题」会先命中 '选择题' → 被误判成单选，
@@ -8180,13 +8224,19 @@ Typr["U"] = {
   function extractFromQuizPracticeRoot(root) {
     const typePattern = /^(?:[［\[【(（][^］\]】)）]{1,12}[］\]】)）]|(?:单项选择|多项选择|不定项选择|单选题|多选题|选择题|填空题|判断题|简答题|论述题|问答题|是非题|正误题)题?)$/;
     const typePredicate = el => {
+      // 表单控件（下拉 option 等）不可能是题型分区标题，直接排除。
+      if (/^(OPTION|OPTGROUP|SELECT|INPUT|TEXTAREA|BUTTON|SCRIPT|STYLE|NOSCRIPT)$/.test(el.tagName)) return false;
+      if (isXxtOwnUiElement(el)) return false;
       const text = (el.textContent || '').trim();
       if (text.length > 20 || !detectTypeFromText(text) || !typePattern.test(text)) return false;
       // 只保留最内层文本节点，避免同一标签的祖先元素重复计数。
       return !Array.from(el.children || []).some(child => typePredicate(child));
     };
     const numberPredicate = el => /^\s*\d+\s*[.、)）]\s*$/.test((el.textContent || '').trim());
-    const typeElements = Array.from(root.querySelectorAll('*')).filter(typePredicate);
+    // 只认页面里的元素：脚本自己的面板/弹窗里也有「单选题」「判断题」这类文本
+    // （题库筛选下拉的 option），必须排除，否则会被当成题型分区。
+    const pageElements = Array.from(root.querySelectorAll('*')).filter(el => !isXxtOwnUiElement(el));
+    const typeElements = pageElements.filter(typePredicate);
     if (typeElements.length === 0) return null;
 
     const results = { '单选': [], '多选': [], '填空': [], '判断': [], '简答': [] };
@@ -8194,8 +8244,8 @@ Typr["U"] = {
     let wrongCount = 0;
     let hasMyAnswer = false;
     let hasCorrectAnswer = false;
-    const allElements = Array.from(root.querySelectorAll('*'));
-    const allOptions = Array.from(root.querySelectorAll('li'));
+    const allElements = pageElements;
+    const allOptions = Array.from(root.querySelectorAll('li')).filter(li => !isXxtOwnUiElement(li));
     const elementIndex = new Map(allElements.map((el, index) => [el, index]));
     const submitBoundary = allElements.find(el => {
       const text = (el.textContent || '').trim();
@@ -8233,6 +8283,13 @@ Typr["U"] = {
       });
       const firstOptionIndex = firstOption ? elementIndex.get(firstOption) : nextTypeIndex;
       let stemContent = [];
+      const leafStemContent = () => {
+        const stemEl = allElements.find(el => {
+          const elIndex = elementIndex.get(el);
+          return isBetween(elIndex, typeIndex, firstOptionIndex) && isLeafText(el);
+        }) || null;
+        return stemEl ? stripQuestionPrefix(extractRichContent(stemEl)) : [];
+      };
       try {
         // 题干容器有时同时包住选项，不能只筛“无子节点”的元素；
         // 用 Range 截取题型标签到第一项之间的内容，避免把选项文本带入题干。
@@ -8244,11 +8301,28 @@ Typr["U"] = {
         else range.setEndAfter(typeEl);
         stemContent = stripQuestionPrefix(extractRichContent(range.cloneContents()));
       } catch (e) {
-        const stemEl = allElements.find(el => {
-          const elIndex = elementIndex.get(el);
-          return isBetween(elIndex, typeIndex, firstOptionIndex) && isLeafText(el);
-        }) || null;
-        stemContent = stemEl ? stripQuestionPrefix(extractRichContent(stemEl)) : [];
+        stemContent = [];
+      }
+      // Range 的终点可能落在脚本自己的面板/浮层里（那一侧也出现「判断题」这类
+      // 文本时就会被当成下一个分区），从而把中间整块页面卷进题干。
+      // 这种情况下按题目区域的边界逐级收缩，最后退回叶节点文本——宁可少取，
+      // 也不能把界面文案当题干。
+      if (!hasRichContent(stemContent) || richTextOnly(stemContent).length > XXT_MAX_STEM_TEXT_LENGTH) {
+        const scopedNextType = nextType && sharesQuestionScope(typeEl, nextType) ? nextType : null;
+        const scopedFirstOption = firstOption && sharesQuestionScope(typeEl, firstOption) ? firstOption : null;
+        if (scopedFirstOption || scopedNextType) {
+          try {
+            const rangeDocument = root.ownerDocument || root;
+            const range = rangeDocument.createRange();
+            range.setStartAfter(typeEl);
+            if (scopedFirstOption) range.setEndBefore(scopedFirstOption);
+            else range.setEndBefore(scopedNextType);
+            stemContent = stripQuestionPrefix(extractRichContent(range.cloneContents()));
+          } catch (e) { stemContent = []; }
+        }
+      }
+      if (!hasRichContent(stemContent) || richTextOnly(stemContent).length > XXT_MAX_STEM_TEXT_LENGTH) {
+        stemContent = leafStemContent();
       }
       if (!hasRichContent(stemContent)) return;
 
@@ -8302,7 +8376,7 @@ Typr["U"] = {
     const questions = [];
     const seen = new Set();
     selectors.forEach(selector => {
-      root.querySelectorAll(selector).forEach(question => {
+      xxtPageQueryAll(root, selector).forEach(question => {
         if (seen.has(question)) return;
         const stemEl = findQuestionStemElement(question);
         const type = findQuestionType(question, stemEl);
@@ -10205,6 +10279,7 @@ Typr["U"] = {
 
     const panel = document.createElement('div');
     panel.id = 'xxt-panel';
+    panel.classList.add('xxt-own-ui');
     panel.innerHTML = `
       <div class="xxt-header">
         <div class="xxt-brand">
@@ -10399,6 +10474,7 @@ Typr["U"] = {
     // 创建设置弹窗
     const modal = document.createElement('div');
     modal.id = 'xxt-settings-modal';
+    modal.classList.add('xxt-own-ui');
     modal.innerHTML = `
       <div class="xxt-modal-box">
         <div class="xxt-modal-header">
@@ -10606,6 +10682,7 @@ Typr["U"] = {
     // ==================== 历史记录弹窗 ====================
     const historyModal = document.createElement('div');
     historyModal.id = 'xxt-history-modal';
+    historyModal.classList.add('xxt-own-ui');
     historyModal.innerHTML = `
       <div class="xxt-modal-box">
         <div class="xxt-modal-header">
@@ -10818,6 +10895,7 @@ Typr["U"] = {
     // 等新题目页/iframe 确认更新后再提取并合并，不会提交答案或修改学习进度。
     const batchModal = document.createElement('div');
     batchModal.id = 'xxt-batch-modal';
+    batchModal.classList.add('xxt-own-ui');
     batchModal.innerHTML = `
       <div class="xxt-batch-box" role="dialog" aria-modal="true" aria-labelledby="xxt-batch-title">
         <div class="xxt-modal-header">
@@ -10841,6 +10919,7 @@ Typr["U"] = {
     document.body.appendChild(batchModal);
     const batchProgressCard = document.createElement('aside');
     batchProgressCard.id = 'xxt-batch-progress-card';
+    batchProgressCard.classList.add('xxt-own-ui');
     batchProgressCard.setAttribute('aria-live', 'polite');
     batchProgressCard.innerHTML = `
       <div class="xxt-batch-card-head"><strong class="xxt-batch-card-title">📚 整门课题目提取</strong><button type="button" class="xxt-batch-card-close" data-batch-card-close aria-label="关闭进度">&times;</button></div>
@@ -12576,6 +12655,7 @@ Typr["U"] = {
     // ==================== 独立题库区 ====================
     const bankModal = document.createElement('div');
     bankModal.id = 'xxt-bank-modal';
+    bankModal.classList.add('xxt-own-ui');
     bankModal.innerHTML = `
       <div class="xxt-bank-box">
         <div class="xxt-modal-header">
@@ -12674,6 +12754,7 @@ Typr["U"] = {
     // 上一次使用的题库；也可以在此一步新建题库后立即存入。
     const saveBankModal = document.createElement('div');
     saveBankModal.id = 'xxt-save-bank-modal';
+    saveBankModal.classList.add('xxt-own-ui');
     saveBankModal.innerHTML = `
       <form class="xxt-save-bank-box" id="xxt-save-bank-form" role="dialog" aria-modal="true" aria-labelledby="xxt-save-bank-title">
         <div class="xxt-modal-header">
@@ -13878,6 +13959,7 @@ Typr["U"] = {
     // ==================== 在线查看/编辑题目 ====================
     const editorModal = document.createElement('div');
     editorModal.id = 'xxt-editor-modal';
+    editorModal.classList.add('xxt-own-ui');
     editorModal.innerHTML = `
       <div class="xxt-editor-box">
         <div class="xxt-modal-header">
@@ -14947,6 +15029,7 @@ Typr["U"] = {
     if (modal) return modal;
     modal = document.createElement('div');
     modal.id = 'xxt-preview-modal';
+    modal.classList.add('xxt-own-ui');
     modal.innerHTML = `
       <div class="xxt-preview-box">
         <div class="xxt-modal-header"><h3>导出预览</h3><button type="button" class="xxt-modal-close" id="xxt-preview-close" aria-label="关闭">&times;</button></div>

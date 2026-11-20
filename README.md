@@ -10,9 +10,9 @@
 <br>
 
 <a href="./LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue.svg" alt="GPL-3.0"></a>
-<a href="./学习通题目导出.user.js"><img src="https://img.shields.io/badge/version-1.11.0-7c3aed.svg" alt="Version 1.11.0"></a>
+<a href="./学习通题目导出.user.js"><img src="https://img.shields.io/badge/version-1.11.1-7c3aed.svg" alt="Version 1.11.1"></a>
 <img src="https://img.shields.io/badge/lines-15307-6366f1.svg" alt="15307 lines">
-<img src="https://img.shields.io/badge/assertions-415-059669.svg" alt="415 assertions">
+<img src="https://img.shields.io/badge/assertions-428-059669.svg" alt="428 assertions">
 <img src="https://img.shields.io/badge/formats-DOCX%20%7C%20PDF%20%7C%20MD%20%7C%20TXT%20%7C%20JSON-f59e0b.svg" alt="formats">
 
 <br>
@@ -73,7 +73,7 @@
 | --- | ---: | --- |
 | 脚本行数 | **15,307** | 单文件，无构建步骤、无打包工具、无 `package.json` |
 | 文件体积 | **733 KiB** | 字体解析与哈希依赖已内嵌源码，不依赖第三方 CDN |
-| 回归断言 | **415** | 18 个测试文件，覆盖从解析到 UI 的全链路 |
+| 回归断言 | **428** | 19 个测试文件，覆盖从解析到 UI 的全链路 |
 | 导出格式 | **5** | DOCX / PDF / Markdown / TXT / JSON 备份 |
 | 导入格式 | **5** | JSON / TXT / Markdown（`.md`、`.markdown`）/ DOCX / PDF |
 | 题型分区 | **6** | 单选 / 多选 / 填空 / 判断 / 简答 / 待归类 |
@@ -322,6 +322,12 @@
 </details>
 
 <details>
+<summary><b>题干后面跟了一大段界面文字？</b></summary>
+
+1.11.1 已修复。旧版本会把题库筛选下拉里的「单选题」「判断题」当成页面上的题型分区，截取题干时一路截到面板，把整块界面文案卷了进去。现在脚本自己的窗口（面板、设置、历史、题库、批量、编辑器、预览）都带统一标记并在提取时排除，`option`/`select`/`input` 等表单控件也不再参与题型判定。若仍遇到，请更新到最新版本。
+</details>
+
+<details>
 <summary><b>题干或选项是一堆乱码方块？</b></summary>
 
 这是学习通的加密字体没解开。在控制台执行 `__xxt_font_cipher_debug` 查看诊断：`reason` 会告诉你卡在哪一步（没找到目标元素 / 字体表加载失败 / 字形哈希没命中）。常见原因是网络不通导致映射表拉不到——换网络或挂代理后刷新重试。
@@ -361,12 +367,13 @@
 
 ## 📝 更新日志
 
-版本号对应脚本头部的 `@version`。当前版本 **1.11.0**。
+版本号对应脚本头部的 `@version`。当前版本 **1.11.1**。
 
 ### 版本总览
 
 | 版本 | 类型 | 主要内容 |
 | --- | --- | --- |
+| [1.11.1](#1111) | 修复 | 题干混入面板界面文案：自身 UI 与表单控件不再被当成题型分区 |
 | [1.11.0](#1110) | 改进 | 界面全面重构：主面板三段式布局、题库区与在线编辑器对齐设计稿，暗色模式同步更新 |
 | [1.10.1](#1101) | 新增 | 批量提取进度自动存档，页面崩溃/刷新后可恢复已提取的题目 |
 | [1.10.0](#1100) | 新增 | 导入时自动识别并校正题型，无法确定的归入「待归类」，支持 AI 审核归类 |
@@ -378,6 +385,13 @@
 | [1.8.0](#180) | 新增 | 题库多格式导入导出；AI 补答案与纠错审核 |
 | [1.7.23](#1723) | 修复 | 增加 xuexitong.com 域名匹配 |
 | 1.7.x 及更早 | 基础 | 题目提取、题型分区、富文本、多格式导出、错题、独立题库、暗色模式等 |
+
+### 1.11.1
+
+| 类型 | 内容 |
+| --- | --- |
+| 修复 | **题干里混进整块面板文案**：题库筛选下拉的 `<option>单选题</option>` / `<option>判断题</option>` 会命中「题型分区」判定；当页面靠后分区没有 `<li>` 选项时，Range 会从题型标签一路截到面板，把界面文字全部卷进题干。现在自身 UI 统一带 `.xxt-own-ui` 标记并被排除，表单控件不再参与题型判定，Range 越界时按题目区域收缩并退回叶节点文本。 |
+| 新增 | 回归用例 `own-ui-exclusion.test.js`：jsdom 内真实执行脚本、开满所有窗口后点提取，断言题干不含任何自身文案；并用三种合法布局做反向自检，确保防线不误伤正常题干。 |
 
 ### 1.11.0
 
