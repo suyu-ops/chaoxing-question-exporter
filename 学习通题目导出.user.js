@@ -2,7 +2,7 @@
 // @name         学习通-随堂测验/章节测试/作业/考试题目一键提取导出pdf/word/txt/markdown格式文档
 // @namespace    https://tiku888.top/
 // @license      GPL-3.0
-// @version      1.11.1
+// @version      1.11.2
 // @run-at       document-start
 // @description  一键提取学习通作业题目，支持富文本（图文混排）及 Word/PDF/TXT/MD 四种格式导出、按课程任务点自动逐个提取章节测验、题目勾选后按范围导出，答案/错题收集，独立题库区（新建/存取/编辑/手动添加/导入/四种格式导出/题库对比），暗色模式，快捷键，iframe 提取
 // @author       suyu
@@ -6915,6 +6915,44 @@ Typr["U"] = {
   // 真实题目（含材料题）远不到这个量级，而误截会把整页/整块界面卷进来。
   const XXT_MAX_STEM_TEXT_LENGTH = 1200;
 
+  // 取页面里的全部元素，并剔除脚本自身界面。
+  // 注意：不能对每个元素调用 closest(XXT_OWN_UI_SELECTOR)——那是
+  // 「元素数 × 选择器数」的复合匹配，324 题的作业页 4 万个元素要烧掉近 1 秒。
+  // 改为先找到自身界面的根节点，再用一次 TreeWalker 把这些子树整体剪掉。
+  function collectPageElements(root) {
+    const scope = root && root.querySelectorAll ? root : document;
+    const doc = scope.nodeType === Node.DOCUMENT_NODE ? scope : (scope.ownerDocument || document);
+    // 片段（DocumentFragment）没有 ownerDocument 树可走，退回普通查询。
+    if (scope.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+      try { return Array.from(scope.querySelectorAll('*')).filter(el => !isXxtOwnUiElement(el)); } catch (e) { return []; }
+    }
+    const startNode = scope.nodeType === Node.ELEMENT_NODE ? scope : doc.body;
+    if (!startNode) return [];
+    let ownRoots = [];
+    try { ownRoots = Array.from(doc.querySelectorAll(XXT_OWN_UI_SELECTOR)); } catch (e) { ownRoots = []; }
+    const collectAll = () => {
+      const all = [];
+      try {
+        const walker = doc.createTreeWalker(startNode, 1 /* SHOW_ELEMENT */);
+        while (walker.nextNode()) all.push(walker.currentNode);
+      } catch (e) { return []; }
+      return all;
+    };
+    if (!ownRoots.length) return collectAll();
+    const ownSet = new Set(ownRoots);
+    // 如果自身界面就是 scope 本身，那这个 scope 里只剩界面元素。
+    const cleaned = [];
+    try {
+      const walker = doc.createTreeWalker(startNode, 1 /* SHOW_ELEMENT */, {
+        acceptNode(node) { return ownSet.has(node) ? 2 /* REJECT：整棵子树跳过 */ : 1 /* ACCEPT */; },
+      });
+      while (walker.nextNode()) cleaned.push(walker.currentNode);
+    } catch (e) {
+      return collectAll().filter(el => !isXxtOwnUiElement(el));
+    }
+    return cleaned;
+  }
+
   // Range 的两个边界必须落在同一块题目区域内，否则中间会夹进无关内容。
   // 判据：一方包含另一方，或两者最近的共同祖先不是 body/html。
   function sharesQuestionScope(a, b) {
@@ -7218,25 +7256,108 @@ Typr["U"] = {
     return '';
   }
 
+  // 判断某个 <style> 里是否真的“用”了 font-cxsecret 字体。
+  // 只有 font-family 声明里出现它，元素才可能带上这个字体；
+  // 仅出现 @font-face 定义而没人使用的样式不需要扫描任何元素。
+  function styleTextUsesCipherFont(cssText) {
+    const css = String(cssText || '');
+    if (!/font-cxsecret/i.test(css)) return false;
+    return /font-family\s*:[^;{}]*font-cxsecret/i.test(css)
+      || /font\s*:[^;{}]*font-cxsecret/i.test(css);
+  }
+
+  // 从样式表里反查「哪些选择器会把 font-cxsecret 设成字体」。
+  // 这样只要 querySelectorAll 命中即可，不必对整页每个元素调 getComputedStyle。
+  function collectCipherFontSelectors(cssText) {
+    const selectors = [];
+    const rulePattern = /([^{}]+)\{([^{}]*)\}/g;
+    let matched;
+    while ((matched = rulePattern.exec(String(cssText || '')))) {
+      const body = matched[2];
+      if (!/font(-family)?\s*:[^;{}]*font-cxsecret/i.test(body)) continue;
+      String(matched[1] || '').replace(/\/\*[\s\S]*?\*\//g, '').split(',').forEach(raw => {
+        const selector = raw.trim();
+        if (!selector || selector.charAt(0) === '@') return;
+        // 跳过 @keyframes 里的 0% / from / to 这类伪选择器。
+        if (/^\d+(\.\d+)?%$/.test(selector) || /^(from|to)$/i.test(selector)) return;
+        // 条件组（@media 等）的嵌套会让左花括号前混入 at-rule 前缀，取最后一段。
+        const scoped = selector.split('}').pop().trim();
+        if (!scoped) return;
+        selectors.push(scoped);
+      });
+    }
+    return selectors;
+  }
+
+  // 每个文档缓存一次「这份文档到底有没有加密字体」。
+  // 324 题的作业页没有任何 font-cxsecret 样式，这一步能直接免掉
+  // 对 4 万多个元素逐个 getComputedStyle 的全页扫描（实测 8 秒以上）。
+  const cipherStyleInfoByDocument = new WeakMap();
+
+  function getCipherStyleInfo(doc) {
+    const scope = doc && doc.querySelectorAll ? doc : document;
+    const styles = Array.from(scope.querySelectorAll('style'));
+    let totalLength = 0;
+    const usesCipher = [];
+    styles.forEach(style => {
+      const text = style.textContent || '';
+      totalLength += text.length;
+      if (styleTextUsesCipherFont(text)) usesCipher.push(text);
+    });
+    const cached = cipherStyleInfoByDocument.get(scope);
+    if (cached && cached.totalLength === totalLength) return cached;
+    const selectors = [];
+    usesCipher.forEach(text => collectCipherFontSelectors(text).forEach(sel => {
+      if (!selectors.includes(sel)) selectors.push(sel);
+    }));
+    const info = {
+      totalLength,
+      hasCipherStyle: usesCipher.length > 0,
+      cssText: usesCipher.join('\n'),
+      selectors,
+    };
+    cipherStyleInfoByDocument.set(scope, info);
+    return info;
+  }
+
   function getCxSecretTargets(root) {
     const scope = root && root.querySelectorAll ? root : document;
+    const doc = scope.nodeType === Node.DOCUMENT_NODE ? scope : (scope.ownerDocument || document);
     // 旧版模板直接给元素添加 class；新版可能只通过 class 的组合形式，
     // 或仅通过 font-family 继承加密字体。
     const classTargets = Array.from(scope.querySelectorAll('.font-cxsecret, [class*="font-cxsecret"]'));
     // OCS 的 getSecretFont 会优先取 .after：加密字体容器有时同时包含
     // 选项按钮/伪元素，直接改写整个容器会破坏按钮结构。
     const targets = new Set(classTargets.map(element => element.querySelector('.after') || element));
-    if (scope.querySelector('style') && !targets.size) {
-      Array.from(scope.querySelectorAll('body *')).forEach(element => {
+    // 页面里根本不存在 font-cxsecret 字体时，任何元素都不可能用到它，
+    // 直接返回，避免无意义的全页样式计算。
+    const styleInfo = getCipherStyleInfo(doc);
+    if (!targets.size && styleInfo.hasCipherStyle) {
+      // 第一优先：按样式表里的选择器精确定位，代价和题目数量同级。
+      styleInfo.selectors.forEach(selector => {
         try {
-          if (/font-cxsecret/i.test(getComputedStyle(element).fontFamily || '')) targets.add(element);
+          Array.from(scope.querySelectorAll(selector)).forEach(element => targets.add(element));
         } catch (e) {}
       });
+      // 其次：写在 style 属性上的内联字体。
+      try {
+        Array.from(scope.querySelectorAll('[style*="font-cxsecret"]')).forEach(element => targets.add(element));
+      } catch (e) {}
+      // 最后才退回全页样式计算。上面的精确命中通常已经覆盖全部元素，
+      // 这里只在模板用了脚本动态设置的字体时才需要。
+      if (!targets.size) {
+        Array.from(scope.querySelectorAll('body *')).forEach(element => {
+          try {
+            if (/font-cxsecret/i.test(getComputedStyle(element).fontFamily || '')) targets.add(element);
+          } catch (e) {}
+        });
+      }
     }
+    const targetList = Array.from(targets);
     // 若父元素已经命中，则不再重复扫描其中的子元素，避免重复改写文本节点。
     return {
       classTargets,
-      targets: Array.from(targets).filter(element => !Array.from(targets)
+      targets: targetList.filter(element => !targetList
         .some(parent => parent !== element && parent.contains(element))),
     };
   }
@@ -8223,20 +8344,38 @@ Typr["U"] = {
   // 随堂练习 answerQuestion2 页面：题号、题型和题干在同一标题行，选项是普通 li。
   function extractFromQuizPracticeRoot(root) {
     const typePattern = /^(?:[［\[【(（][^］\]】)）]{1,12}[］\]】)）]|(?:单项选择|多项选择|不定项选择|单选题|多选题|选择题|填空题|判断题|简答题|论述题|问答题|是非题|正误题)题?)$/;
+    // 单题容器：作业作答（dowork）、作业详情（view）、考试等页面里，
+    // 每题标题都会带一个「（简答题）」这样的题型小标签。
+    // 分区标题绝不可能出现在单题容器内部——若不做这个排除，324 题的
+    // 作业页会被当成 324 个「题型分区」，Range 从本题的题型标签一路截到
+    // 下一题的题型标签，把答题框和下一题题号都卷进题干。
+    const QUESTION_CONTAINER_SELECTOR = [
+      '.questionLi', '.TiMu', '.mark_item', '.u-questionItem',
+      '.questionItem', '.question-item', '.exam-question',
+      '[data-question-id]', '[data-question-type]'
+    ].join(', ');
+    const insideQuestionContainer = el => {
+      try { return !!(el.closest && el.closest(QUESTION_CONTAINER_SELECTOR)); } catch (e) { return false; }
+    };
     const typePredicate = el => {
       // 表单控件（下拉 option 等）不可能是题型分区标题，直接排除。
       if (/^(OPTION|OPTGROUP|SELECT|INPUT|TEXTAREA|BUTTON|SCRIPT|STYLE|NOSCRIPT)$/.test(el.tagName)) return false;
       if (isXxtOwnUiElement(el)) return false;
+      if (insideQuestionContainer(el)) return false;
       const text = (el.textContent || '').trim();
       if (text.length > 20 || !detectTypeFromText(text) || !typePattern.test(text)) return false;
       // 只保留最内层文本节点，避免同一标签的祖先元素重复计数。
       return !Array.from(el.children || []).some(child => typePredicate(child));
     };
     const numberPredicate = el => /^\s*\d+\s*[.、)）]\s*$/.test((el.textContent || '').trim());
+    // 题型分区标题必然是极短的文本（「一. 简答题」「【单选题】」）。
+    // 先在元素总表上做一次「短路」筛选，只对可能命中的少数元素求 textContent：
+    // 324 题的作业页有 4 万多个元素，逐个算 textContent 会白白烧掉上秒。
+    const looksLikeTypeLabel = el => typePattern.test((el.textContent || '').trim().slice(0, 24));
     // 只认页面里的元素：脚本自己的面板/弹窗里也有「单选题」「判断题」这类文本
     // （题库筛选下拉的 option），必须排除，否则会被当成题型分区。
-    const pageElements = Array.from(root.querySelectorAll('*')).filter(el => !isXxtOwnUiElement(el));
-    const typeElements = pageElements.filter(typePredicate);
+    const pageElements = collectPageElements(root);
+    const typeElements = pageElements.filter(el => looksLikeTypeLabel(el) && typePredicate(el));
     if (typeElements.length === 0) return null;
 
     const results = { '单选': [], '多选': [], '填空': [], '判断': [], '简答': [] };
@@ -8248,16 +8387,44 @@ Typr["U"] = {
     const allOptions = Array.from(root.querySelectorAll('li')).filter(li => !isXxtOwnUiElement(li));
     const elementIndex = new Map(allElements.map((el, index) => [el, index]));
     const submitBoundary = allElements.find(el => {
-      const text = (el.textContent || '').trim();
-      return text === '提交' && el.children.length <= 2;
+      // 先看子元素数量，避免对整页每个元素都算一遍 textContent。
+      if (el.children.length > 2) return false;
+      return (el.textContent || '').trim() === '提交';
     }) || null;
     const submitIndex = submitBoundary ? elementIndex.get(submitBoundary) : allElements.length;
+    // 题号元素的位置表。每个题型分区都要找「它前面最近的题号」，
+    // 若每次都 allElements.slice(0, index).reverse().find(...)，324 个分区
+    // 在 4 万元素的页面上就是上千万次数组拷贝；这里预计算一次再二分。
+    const numberElements = [];
+    const numberIndices = [];
+    allElements.forEach((el, elIndex) => {
+      if (numberPredicate(el)) { numberElements.push(el); numberIndices.push(elIndex); }
+    });
+    const lastNumberBefore = (index) => {
+      let low = 0;
+      let high = numberIndices.length - 1;
+      let found = -1;
+      while (low <= high) {
+        const mid = (low + high) >> 1;
+        if (numberIndices[mid] < index) { found = mid; low = mid + 1; } else high = mid - 1;
+      }
+      return found >= 0 ? numberElements[found] : null;
+    };
     const isBetween = (index, start, end) => index > start && index < end;
     const isLeafText = el => {
       if (!el || el.closest('li')) return false;
       const text = (el.textContent || '').trim();
       if (!text || numberPredicate(el) || typePredicate(el)) return false;
       return el.children.length === 0 || Array.from(el.children).every(child => ['BR', 'IMG'].includes(child.tagName));
+    };
+    // 判定过一次叶节点文本就缓存结果：每个题型分区都要在区间里找叶节点，
+    // 不缓存时同一个元素会被反复重新判定（每次都要算 textContent）。
+    const leafTextCache = new Map();
+    const cachedIsLeafText = el => {
+      if (leafTextCache.has(el)) return leafTextCache.get(el);
+      const value = isLeafText(el);
+      leafTextCache.set(el, value);
+      return value;
     };
 
     typeElements.forEach((typeEl, index) => {
@@ -8273,9 +8440,7 @@ Typr["U"] = {
       const titleSiblings = titleParent ? Array.from(titleParent.children) : [];
       const siblingTypeIndex = titleSiblings.indexOf(typeEl);
       let numberEl = titleSiblings.slice(0, siblingTypeIndex).reverse().find(numberPredicate) || null;
-      if (!numberEl) {
-        numberEl = allElements.slice(0, allElements.indexOf(typeEl)).reverse().find(numberPredicate) || null;
-      }
+      if (!numberEl) numberEl = lastNumberBefore(typeIndex);
 
       const firstOption = allOptions.find(li => {
         const liIndex = elementIndex.get(li);
@@ -8286,7 +8451,7 @@ Typr["U"] = {
       const leafStemContent = () => {
         const stemEl = allElements.find(el => {
           const elIndex = elementIndex.get(el);
-          return isBetween(elIndex, typeIndex, firstOptionIndex) && isLeafText(el);
+          return isBetween(elIndex, typeIndex, firstOptionIndex) && cachedIsLeafText(el);
         }) || null;
         return stemEl ? stripQuestionPrefix(extractRichContent(stemEl)) : [];
       };

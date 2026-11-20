@@ -157,6 +157,25 @@ const click = id => {
         <ul><li>A、思乡</li><li>B、喜悦</li></ul>
       </div>`,
       want: [`阅读下面的材料，回答问题。${'这是一段材料内容。'.repeat(20)}问：作者想表达什么？`]
+    },
+    {
+      // 作业作答（dowork）页：每题标题里带「（简答题）」小标签，外面还有一层分区标题。
+      // 单题容器内的题型小标签不能被当成新分区，否则 Range 会一路截到下一题。
+      label: '单题容器内的题型标签不当作分区',
+      html: `<div id="ZyBottom">
+        <div class="secTitle">一. 简答题（共 2 题）</div>
+        <div class="questionLi" data-question-id="q1">
+          <div class="Zy_TItle"><i>1.</i><span class="newZy_TItle">（简答题）</span>
+            <div class="qtContent">太阳从哪边升起？</div></div>
+          <div class="Py_answer">请在此作答</div>
+        </div>
+        <div class="questionLi" data-question-id="q2">
+          <div class="Zy_TItle"><i>2.</i><span class="newZy_TItle">（简答题）</span>
+            <div class="qtContent">地球是圆的吗？</div></div>
+          <div class="Py_answer">请在此作答</div>
+        </div>
+      </div>`,
+      want: ['太阳从哪边升起？', '地球是圆的吗？']
     }
   ];
 
