@@ -2,7 +2,7 @@
 // @name         学习通-随堂测验/章节测试/作业/考试题目一键提取导出pdf/word/txt/markdown格式文档
 // @namespace    https://tiku888.top/
 // @license      GPL-3.0
-// @version      1.11.2
+// @version      1.11.3
 // @run-at       document-start
 // @description  一键提取学习通作业题目，支持富文本（图文混排）及 Word/PDF/TXT/MD 四种格式导出、按课程任务点自动逐个提取章节测验、题目勾选后按范围导出，答案/错题收集，独立题库区（新建/存取/编辑/手动添加/导入/四种格式导出/题库对比），暗色模式，快捷键，iframe 提取
 // @author       suyu
@@ -5510,6 +5510,13 @@ Typr["U"] = {
         ? { explanationConfidence: Math.max(0, Math.min(1, Number(question.explanationConfidence))) } : {}),
       ...(question.explanationSource === 'ai' && question.explanationUpdatedAt
         ? { explanationUpdatedAt: String(question.explanationUpdatedAt).substring(0, 40) } : {}),
+      // 题型推断的结论同样要保留：待归类题目在题库区会展示「AI/规则建议」
+      // 与「归类依据」。丢掉这三个字段后，徽章只会显示“题型未知”，
+      // 用户看不到建议题型，也就无从判断要不要交给 AI 归类。
+      ...(question.typeConfidence ? { typeConfidence: String(question.typeConfidence).substring(0, 20) } : {}),
+      ...(question.typeReason ? { typeReason: String(question.typeReason).substring(0, 300) } : {}),
+      ...(question.suggestedType ? { suggestedType: String(question.suggestedType).substring(0, 20) } : {}),
+      ...(question.typeSource === 'ai' ? { typeSource: 'ai' } : {}),
       myAnswer: '', isWrong: false
     };
   }
@@ -13384,6 +13391,31 @@ Typr["U"] = {
       }
     }
 
+    // 批量处理时条目携带的是「收集时」的数组下标，而中途落盘会走
+    // saveQuestionBankState → normalizeQuestionBank，把整库题目重建一遍：
+    // 下标失效、对象引用也失效。所以定位优先级是
+    //   1) 题目对象引用（同一批内存内且未落盘时有效）
+    //   2) 稳定的题目身份（题干 + 选项哈希，同库内唯一）
+    //   3) 原始下标（单题即时写入时有效）
+    // 任一步都找不到就跳过，绝不退化成「按下标猜一道题」，否则答案会写到别的题目上。
+    function locateBankQuestionIndex(list, entry) {
+      if (!Array.isArray(list)) return -1;
+      if (entry && entry.question && typeof entry.question === 'object') {
+        const at = list.indexOf(entry.question);
+        if (at >= 0) return at;
+      }
+      if (entry && entry.identity) {
+        const at = list.findIndex(question => {
+          try { return bankQuestionIdentity(entry.type, question) === entry.identity; } catch (e) { return false; }
+        });
+        if (at >= 0) return at;
+        // 有身份但库里已经没有这道题（被删除/被去重），按已失效处理。
+        if (Number.isFinite(Number(entry.index))) return -1;
+      }
+      const index = Number(entry && entry.index);
+      return Number.isInteger(index) && index >= 0 && index < list.length ? index : -1;
+    }
+
     // 把 AI 结果写回题库中的同一道题（不重建题库，避免 id 变化后勾选错位）。
     // 把「待归类」的题目移动到 AI 判定的题型槽位，并写入答案。
     // 注意：批量过程中会连续移动，必须先按 index 降序处理，否则同一槽位
@@ -13396,8 +13428,9 @@ Typr["U"] = {
       const jobs = [];
       moves.forEach(entry => {
         const list = active.results[entry.type];
-        if (!list || !list[entry.index]) return;
-        jobs.push({ entry, question: list[entry.index] });
+        const at = locateBankQuestionIndex(list, entry);
+        if (at < 0) return;
+        jobs.push({ entry, question: list[at] });
       });
       if (!jobs.length) return 0;
 
@@ -13408,15 +13441,11 @@ Typr["U"] = {
         byType.get(job.entry.type).push(job);
       });
       byType.forEach((group, type) => {
-        group.sort((a, b) => b.entry.index - a.entry.index);
         const list = active.results[type];
+        group.sort((a, b) => list.indexOf(b.question) - list.indexOf(a.question));
         group.forEach(job => {
-          const current = list[job.entry.index];
-          if (current === job.question) list.splice(job.entry.index, 1);
-          else {
-            const at = list.indexOf(job.question);
-            if (at >= 0) list.splice(at, 1);
-          }
+          const at = list.indexOf(job.question);
+          if (at >= 0) list.splice(at, 1);
         });
       });
 
@@ -13455,8 +13484,9 @@ Typr["U"] = {
 
       plainEntries.forEach(entry => {
         const list = active.results[entry.type];
-        const question = list && list[entry.index];
-        if (!question) return;
+        const at = locateBankQuestionIndex(list, entry);
+        if (at < 0) return;
+        const question = list[at];
         if (entry.explanationOnly) {
           // 补解析模式：只写解析，答案与错题状态一概不动。
           if (entry.explanation) question.explanation = entry.explanation;
@@ -13540,6 +13570,14 @@ Typr["U"] = {
       const worker = async () => {
         while (!bankAiRun.stopped && cursor < targets.length) {
           const row = targets[cursor++];
+          // 提交条目时固定带上题目对象与稳定身份：中途落盘会重建题目对象，
+          // 只靠下标会在第二批之后全部错位（详见 locateBankQuestionIndex）。
+          const ref = {
+            type: row.type,
+            index: row.index,
+            question: row.question,
+            identity: (() => { try { return bankQuestionIdentity(row.type, row.question); } catch (e) { return ''; } })()
+          };
           try {
             if (mode === 'classify') {
               // 归类：AI 同时给出题型与答案，成功后把题目移出「待归类」。
@@ -13549,7 +13587,7 @@ Typr["U"] = {
                 bankAiRun.skipped++;
               } else {
                 pendingWrites.push({
-                  type: row.type, index: row.index,
+                  ...ref,
                   reclassifyTo: result.type,
                   answer: result.answer,
                   confidence: result.confidence,
@@ -13565,7 +13603,7 @@ Typr["U"] = {
                 bankAiRun.skipped++;
               } else {
                 pendingWrites.push({
-                  type: row.type, index: row.index,
+                  ...ref,
                   explanationOnly: true,
                   explanation: result.explanation,
                   confidence: result.confidence
@@ -13579,7 +13617,7 @@ Typr["U"] = {
                 bankAiRun.skipped++;
               } else {
                 pendingWrites.push({
-                  type: row.type, index: row.index,
+                  ...ref,
                   answer: result.answer,
                   explanation: result.explanation,
                   confidence: result.confidence
